@@ -26,6 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -36,8 +37,8 @@ import java.util.Locale
  * that the checker talks to and the one the "release page" button opens can
  * never drift apart.
  */
-private const val REPO = "chorusfruit-233/ColorDuo"
-private const val API_LATEST = "https://api.github.com/repos/$REPO/releases/latest"
+private const val REPO = "jahn2007/ColorDuo"
+private const val API_LATEST = "https://api.github.com/repos/$REPO/releases?per_page=30"
 
 /**
  * A public GitHub mirror, tried before the origin.
@@ -385,7 +386,14 @@ private fun fetchLatestFrom(url: String): UpdateInfo? {
             throw IllegalStateException("HTTP ${connection.responseCode}")
         }
         val body = connection.inputStream.bufferedReader().use { it.readText() }
-        return parseRelease(JSONObject(body))
+        val releases = JSONArray(body)
+        for (i in 0 until releases.length()) {
+            val release = releases.optJSONObject(i) ?: continue
+            if (release.optBoolean("draft") || !release.optString("tag_name").contains("-legacy.")) continue
+            val info = runCatching { parseRelease(release) }.getOrNull()
+            if (info != null) return info
+        }
+        return null
     } finally {
         connection.disconnect()
     }
@@ -410,7 +418,8 @@ private fun parseRelease(json: JSONObject): UpdateInfo {
             val asset = assets.optJSONObject(i) ?: continue
             val name = asset.optString("name")
             if (!name.startsWith("ColorDuo-", ignoreCase = true)
-                || !name.endsWith(".apk", ignoreCase = true)) continue
+                || !name.endsWith(".apk", ignoreCase = true)
+                || !name.contains("-legacy.", ignoreCase = true)) continue
             apkUrl = asset.optString("browser_download_url")
             apkName = name
             apkSize = asset.optLong("size")
