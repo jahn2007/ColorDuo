@@ -7,4 +7,4 @@
 -keep class io.github.yixing233.hyperduo.** { *; }
 
 # The libxposed API is compile-only and supplied by the framework at runtime.
--dontwarn io.github.libxposed.**
+-dontwarn de.robv.android.xposed.**

@@ -37,8 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import io.github.libxposed.api.XposedInterface;
-import io.github.libxposed.api.XposedModule;
+
+
 
 /**
  * Installs every hook HyperDuo v1 needs and keeps the per-host {@link TrioState}
@@ -115,9 +115,9 @@ final class TrioHooks {
             "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer";
 
     /** Module handle for logging from helpers that have no callback argument. */
-    private static volatile XposedModule sModule;
+    private static volatile LegacyLogger sModule;
 
-    static void useLogger(XposedModule module) { sModule = module; }
+    static void useLogger(LegacyLogger module) { sModule = module; }
 
     /**
      * Every slot the module knows how to fold, one group per sub-toggle.
@@ -367,35 +367,7 @@ final class TrioHooks {
 
     // ------------------------------------------------------------------ install
 
-    static void install(XposedModule module, ClassLoader cl) {
-        sModule = module;
-        // Read the user's settings before anything is hooked: the very first hook
-        // callback already needs to know whether the module is switched on.
-        TrioConfig.install(module);
-        TrioConfig.addListener(new TrioConfig.Listener() {
-            @Override
-            public void onConfigChanged() {
-                applyConfigChange();
-            }
-        });
-        int hooked = 0;
-        hooked += group(module, cl, 1);
-        hooked += group(module, cl, 2);
-        hooked += group(module, cl, 3);
-        hooked += group(module, cl, 4);
-        hooked += group(module, cl, 5);
-        hooked += group(module, cl, 6);
-        hooked += group(module, cl, 7);
-        hooked += group(module, cl, 8);
-        hooked += group(module, cl, 9);
-        hooked += group(module, cl, 10);
-        hooked += group(module, cl, 11);
-        hooked += group(module, cl, 12);
-        hooked += group(module, cl, 13);
-        hooked += group(module, cl, 14);
-        log(module, "HyperDuo installed, hooks=" + hooked
-                + " enabled=" + TrioConfig.get().enabled);
-    }
+
 
     /**
      * Reacts to the settings app changing a value.
@@ -778,49 +750,13 @@ final class TrioHooks {
      * a method that a given firmware build renamed must not take the others
      * down with it.
      */
-    private static int group(XposedModule module, ClassLoader cl, int which) {
-        try {
-            switch (which) {
-                case 1: return hookStatusBarViewCapture(module, cl);
-                case 2: return hookBatteryIconView(module, cl);
-                case 3: return hookBatteryMeterView(module, cl);
-                case 4: return hookStatusBarView(module, cl);
-                case 5: return hookSignalIcons(module, cl);
-                case 6: return hookIconContainerLayout(module, cl);
-                case 7: return hookMobileType(module, cl);
-                case 8: return hookMobileTypeVisibility(module, cl);
-                case 9: return hookMeterTint(module, cl);
-                case 10: return hookIslandHide(module, cl);
-                case 11: return hookIconTint(module, cl);
-                case 12: return hookKeyguardBar(module, cl);
-                case 13: return hookIconAdded(module, cl);
-                case 14: return hookStatusClock(module, cl);
-                default: return 0;
-            }
-        } catch (Throwable t) {
-            log(module, "hook group " + which + " failed: " + t);
-            return 0;
-        }
-    }
+
 
     /**
      * Hooks one executable, tolerating a missing method (null) or a rejected
      * hook. Returns 1 when the hook was installed, 0 otherwise.
      */
-    private static int hook(XposedModule module, Method m, String id,
-                            XposedInterface.Hooker hooker) {
-        if (m == null) {
-            log(module, "skip " + id + ": method not found");
-            return 0;
-        }
-        try {
-            module.hook(m).setId(id).intercept(hooker);
-            return 1;
-        } catch (Throwable t) {
-            log(module, "skip " + id + ": " + t);
-            return 0;
-        }
-    }
+
 
     /**
      * Captures the status bar's icon container.
@@ -834,346 +770,11 @@ final class TrioHooks {
      * {@code status_bar.xml}'s root is a {@code MiuiPhoneStatusBarView}, and it
      * holds the authoritative {@code mStatusBarStatusIcons}.
      */
-    private static int hookStatusBarViewCapture(XposedModule module, ClassLoader cl) {
-        final Class<?> bar = Refl.cls(
-                "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView", cl);
-        if (bar == null) {
-            log(module, "MiuiPhoneStatusBarView missing (capture)");
-            return 0;
-        }
-        final Field iconsField = Refl.field(bar, "mStatusBarStatusIcons");
-        return hook(module, Refl.method(bar, "onFinishInflate"),
-                "hyperduo-container", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object result = chain.proceed();
-                        // mStatusBarStatusIcons is assigned inside proceed(), so it
-                        // is only readable now.
-                        final Object self = chain.getThisObject();
-                        final Object icons = Refl.get(iconsField, self);
-                        if (icons instanceof View) {
-                            sStatusIconContainer = icons;
-                            syncSlots(icons);
-                        }
-                        if (self instanceof View) {
-                            sStatusBarView = (View) self;
-                            // The only hook callback that runs early enough on a
-                            // real SystemUI context. TrioConfig ignores repeat
-                            // calls, so this stays a one-shot.
-                            TrioConfig.installReceiver(((View) self).getContext());
-                        }
-                        return result;
-                    }
-                });
-    }
 
-    private static int hookBatteryIconView(XposedModule module, ClassLoader cl) {
-        final Class<?> icon = Refl.cls(
-                "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView", cl);
-        if (icon == null) {
-            log(module, "MiuiBatteryMeterIconView missing");
-            return 0;
-        }
-        // Resolved through the class rather than through the instance, because
-        // View.setMeasuredDimension is protected and only a subclass may call it
-        // directly - this hook is an outside writer, so it goes through reflection.
-        sSetMeasuredDimension = Refl.method(View.class, "setMeasuredDimension",
-                int.class, int.class);
-        final int a = hook(module, Refl.method(icon, "onDraw", Canvas.class),
-                "hyperduo-draw", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object self = chain.getThisObject();
-                        final Object canvasArg = chain.getArg(0);
-                        // Return the slot before native onDraw can use it. Doing
-                        // this afterwards leaves a stale glyph in the first off
-                        // or island frame, and clearTint alone loses native tint.
-                        final boolean paint = TrioConfig.get().enabled && !islandHideBattery();
-                        if (self instanceof View && !paint) {
-                            GlyphDrawable.uninstall((View) self);
-                        }
-                        final Object result = chain.proceed();
-                        if (self instanceof View) {
-                            // Idempotent, and the only chance to pick up a real
-                            // SystemUI context when this generation was loaded
-                            // after the view tree had already been inflated.
-                            TrioConfig.installReceiver(((View) self).getContext());
-                            // The per-SIM signal sampler needs the same context to
-                            // reach telephony; it is the drawing path that needs it,
-                            // so it is handed over here rather than at hook install
-                            // time, when there may be no context at all.
-                            TrioState.attachContext(((View) self).getContext());
-                        }
-                        // Just the master switch: whether to paint at all. The
-                        // renderer resolves the rest of the switches itself -
-                        // except the island: with the battery hidden there is no
-                        // ring to draw into, and painting on would leave the
-                        // glyph floating over the island's clearance.
-                        if (self instanceof View && canvasArg instanceof Canvas
-                                && paint) {
-                            final View host = (View) self;
-                            TrioState state = stateFor(host);
-                            if (state == null) {
-                                state = registerHost(host);
-                            }
-                            state.refresh();
-                            // MIUI's dark-mode pass ends at this view's own
-                            // invalidate() and nowhere else, so a tint change is
-                            // visible here first - and the out-of-ring views are
-                            // siblings that nothing repaints on their own.
-                            final int ink = state.foreground();
-                            if (state.outRingInk != ink) {
-                                recolourOutRing(state, ink);
-                            }
-                            final Canvas canvas = (Canvas) canvasArg;
-                            // The glyph is painted by the icon view itself, from
-                            // the drawable this puts into MIUI's own tint slot -
-                            // see GlyphDrawable. Nothing is left of the window
-                            // that used to be opened here: the canvas, its
-                            // bounds and its clip are the platform's again, so
-                            // there is nothing to keep in step with the bar and
-                            // nothing for the platform to read as an overlay.
-                            if (GlyphDrawable.install(host, state)) {
-                                // The frame that took the slot still has MIUI's
-                                // own battery on it - the drawable only starts
-                                // being asked from the next one. Paint the
-                                // glyph here as well, so the two never trade
-                                // places on screen.
-                                TrioRenderer.draw(canvas, host, state);
-                            }
-                        }
-                        return result;
-                    }
-                });
-        final int b = hook(module, Refl.method(icon, "onDetachedFromWindow"),
-                "hyperduo-detach", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object result = chain.proceed();
-                        final Object self = chain.getThisObject();
-                        if (self instanceof View) {
-                            unregisterHost((View) self);
-                        }
-                        return result;
-                    }
-                });
-        // The host is MIUI's own battery icon, and MIUI measures it to
-        // `battery_meter_width` - 28dp, the width of the narrow vertical battery
-        // MIUI draws. The capsule is a wide shape, so inside that box the fit is
-        // decided by the width and the glyph comes out short: measured on the
-        // reference device at 84x46px inside a 60px-tall bar, with fourteen pixels
-        // of the bar's height going unused and the shape reading as a squashed
-        // pill.
-        //
-        // Answering with the width the capsule's own aspect ratio needs for the
-        // height MIUI just chose is the whole fix, and nothing has to be told
-        // about it: MiuiBatteryMeterView.onMeasure does not measure its icon child
-        // at all, it adds up mBatteryDigitalView.getMeasuredWidth(), and
-        // MiuiStatusBatteryContainer.onMeasure adds up the meter's - so widening
-        // this one view widens the battery slot and the bar makes room for it on
-        // its own.
-        //
-        // Only for the capsule. The ring and the rectangle are as tall as they are
-        // wide and are content in the stock box, so they are left exactly as MIUI
-        // measured them - a pass-through, not a re-measure, so nothing about the
-        // other two arrangements can shift.
-        final int c = hook(module, Refl.method(icon, "onMeasure", int.class, int.class),
-                "hyperduo-icon-measure", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object result = chain.proceed();
-                        final Object self = chain.getThisObject();
-                        if (!(self instanceof View)) {
-                            return result;
-                        }
-                        final View view = (View) self;
-                        try {
-                            final TrioAppearance a = TrioConfig.appearance();
-                            if (!a.glyph || !a.capsule) {
-                                return result;
-                            }
-                            // Taken from the height MIUI just settled on rather
-                            // than from the measure spec: that is the height the
-                            // glyph is about to be drawn into, so the request and
-                            // the drawing cannot be computed from different
-                            // numbers, and no spec mode has to be interpreted.
-                            final int height = view.getMeasuredHeight();
-                            // The length has to be in force BEFORE the width is asked for: the
-                            // host is sized from the shape, so a measurement taken against
-                            // last frame's length would reserve the old width and then draw
-                            // a longer capsule inside it, clipped at the ends.
-                            TrioGeometry.setCapsuleLength(a.capsuleLength);
-                            final int width = TrioGeometry.capHostWidthPx(height);
-                            // The two opening bands are added to the HEIGHT, after the width
-                            // has been asked for the bare capsule. Width decides the drawing
-                            // scale, so leaving it alone is what keeps the capsule the same
-                            // size; the band is purely extra room above and below it.
-                            final int tall = TrioGeometry.capHostHeightPx(height);
-                            final Method setter = sSetMeasuredDimension;
-                            if (width > 0 && tall > 0
-                                    && (width != view.getMeasuredWidth()
-                                        || tall != view.getMeasuredHeight())
-                                    && setter != null) {
-                                // Reflectively, because View.setMeasuredDimension is
-                                // protected: only a subclass may call it on itself,
-                                // and this is an outside writer. It is part of the
-                                // SDK stubs, so it is not a hidden API and no
-                                // restriction applies.
-                                Refl.invokeArgs(setter, view, new Object[] {
-                                        Integer.valueOf(width), Integer.valueOf(tall) });
-                                if (debugLog() && !sLoggedCapsuleMeasure) {
-                                    sLoggedCapsuleMeasure = true;
-                                    log(LOG_INFO, "capsule host widened to "
-                                            + width + "x" + tall);
-                                }
-                            }
-                        } catch (Throwable t) {
-                            // A throw out of onMeasure takes the whole layout pass
-                            // down, so a failure here leaves MIUI's own measurement
-                            // standing instead of propagating.
-                            log(LOG_WARN, "capsule measure failed: " + t);
-                        }
-                        return result;
-                    }
-                });
-        return a + b + c;
-    }
 
-    private static int hookBatteryMeterView(XposedModule module, ClassLoader cl) {
-        final Class<?> meter = Refl.cls(
-                "com.android.systemui.statusbar.views.MiuiBatteryMeterView", cl);
-        if (meter == null) {
-            log(module, "MiuiBatteryMeterView missing");
-            return 0;
-        }
-        // Pin the style to 0: MIUI then shows the digital battery view and hides
-        // its hollow variant, and never measures its own charging icon or
-        // percentage container. While the module is off the request is passed
-        // through untouched, so MIUI is fully in charge again; while it is on the
-        // style is always 0 and the native bolt is handed back on the side - see
-        // the hook below.
-        final Field storeRealStyle = Refl.field(meter, "mStoreRealStyle");
-        sStoreRealStyleField = storeRealStyle;
-        // Resolved through getDeclaredMethod rather than looked up by name on
-        // every call: Refl.callByName uses getMethod, which cannot see a
-        // non-public member, and the visibility of MIUI's private fields and
-        // methods is not part of any contract we can rely on.
-        final Method updateChargeAndText = Refl.method(meter, "updateChargeAndText");
-        sUpdateChargeAndTextField = updateChargeAndText;
-        sChargingViewField = Refl.field(meter, "mBatteryChargingView");
-        sPercentContainerField = Refl.field(meter, "mBatteryPercentContainer");
-        // Needed to hand MIUI its own charging bolt back: mBatteryStyle is the
-        // switch its onMeasure, onLayout and updateChargeAndText all read, and
-        // the two battery views have to be left the way a style-1 meter would
-        // look, which is the opposite of the swap onBatteryStyleChanged performs.
-        sBatteryStyleField = Refl.field(meter, "mBatteryStyle");
-        sBatteryIconViewField = Refl.field(meter, "mBatteryIconView");
-        sHollowBatteryIconViewField = Refl.field(meter, "mHollowBatteryIconView");
-        final Method styleChanged = Refl.method(meter, "onBatteryStyleChanged", int.class);
-        sStyleChangedField = styleChanged;
-        // Runs after the meter's own layout, which is the pass that both decides
-        // the host's frame and performs the bolt-style view swap. Resolved with
-        // methodDeep because onLayout is inherited from LinearLayout, and
-        // getDeclaredMethod would miss it - which is how this repair silently
-        // failed to install once already.
-        final Method meterLayout = Refl.methodDeep(meter, "onLayout",
-                boolean.class, int.class, int.class, int.class, int.class);
-        final int layoutHook = hook(module, meterLayout,
-                "hyperduo-meter-layout", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object result = chain.proceed();
-                        keepHostFrame(chain.getThisObject());
-                        return result;
-                    }
-                });
-        final int a = hook(module, styleChanged,
-                "hyperduo-style", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object self = chain.getThisObject();
-                        final Object requested = chain.getArg(0);
-                        if (self instanceof View) {
-                            rememberMeter((View) self);
-                        }
-                        final TrioAppearance appearance = TrioConfig.appearance();
-                        // The stock bolt is ours to suppress exactly while the
-                        // glyph draws its own, which is one rule and lives in
-                        // one place now.
-                        final boolean glyphBolt = appearance.hidesNativeBolt();
-                        if (!appearance.glyph) {
-                            // Nothing of ours is involved: pass the real style
-                            // through and leave MIUI's own bolt alone.
-                            //
-                            // The field is cleared first, though. While the module
-                            // was on and the glyph was drawing no bolt of its own,
-                            // handBackBolt wrote BOLT_STYLE into mBatteryStyle -
-                            // but onBatteryStyleChanged leaves the two battery
-                            // views the way *it* wants them, which for BOLT_STYLE
-                            // is the hollow outline on and the normal icon off.
-                            // MIUI guards that work on "the style really changed"
-                            // and would therefore skip it, leaving the normal icon
-                            // in place of the hollow one. The constructor's own
-                            // value is the one state that makes the guard pass.
-                            Refl.set(sBatteryStyleField, self, Integer.valueOf(-1));
-                            return chain.proceed();
-                        }
-                        // Always ask for 0, even when MIUI's bolt is wanted. The
-                        // style-1 branch of onBatteryStyleChanged hides
-                        // mBatteryIconView - the view the glyph is drawn on - so
-                        // MIUI must never be allowed to take that branch while the
-                        // module is on. The bolt is handed back by writing the
-                        // field below, which no other code path reads.
-                        final Object result = chain.proceed(new Object[]{Integer.valueOf(0)});
-                        // L574 assigns mStoreRealStyle = i *before* the style guard,
-                        // so a forced style clobbers the real one. Keyguard reads it
-                        // (KeyguardStatusBarViewControllerInject: "mStoreRealStyle != 3")
-                        // to choose between its icon-container and battery alpha
-                        // animations, so restore the caller's value.
-                        Refl.set(storeRealStyle, self, requested);
-                        if (appearance.handsBackPercentage() && Integer.valueOf(3).equals(requested)) {
-                            // Style 3 measures and lays out native percentage text.
-                            // Keep our normal battery host visible for the glyph.
-                            Refl.set(sBatteryStyleField, self, Integer.valueOf(3));
-                            showIfHidden(Refl.get(sBatteryIconViewField, self));
-                            hide(Refl.get(sHollowBatteryIconViewField, self));
-                            Refl.invoke(sUpdateChargeAndTextField, self);
-                        } else if (!glyphBolt) {
-                            handBackBolt(self);
-                        }
-                        return result;
-                    }
-                });
-        // updateChargeAndText() re-shows those two views on every state change.
-        final int b = hook(module, updateChargeAndText,
-                "hyperduo-charge-text", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object result = chain.proceed();
-                        final Object self = chain.getThisObject();
-                        if (self instanceof View) {
-                            rememberMeter((View) self);
-                        }
-                        final TrioAppearance appearance = TrioConfig.appearance();
-                        if (appearance.hidesNativeBolt()) {
-                            // The glyph draws the bolt, so MIUI's own copy of it
-                            // must not show up next to the ring.
-                            hide(Refl.get(sChargingViewField, self));
-                        }
-                        // Otherwise MIUI's own decision stands: handBackBolt and
-                        // the module's own hand-back leave the visibility to this
-                        // method, and re-hiding here would undo them.
-                        if (appearance.glyph && !appearance.handsBackPercentage()) {
-                            // The percentage container is only measured and shown
-                            // at battery style 3, which the module never asks for,
-                            // so it is ours to hide for as long as we are on.
-                            hide(Refl.get(sPercentContainerField, self));
-                        }
-                        return result;
-                    }
-                });
-        return layoutHook + a + b;
-    }
+
+
+
 
     /**
      * Gives MIUI's own charging bolt back to the meter it belongs to, and undoes
@@ -1279,23 +880,7 @@ final class TrioHooks {
      * {@code MiuiPhoneStatusBarView.updateCutoutLocation} invokes
      * {@code setIgnoredSlots(RIGHT_BLOCK_LIST)}, which clears before adding.
      */
-    private static int hookStatusBarView(XposedModule module, ClassLoader cl) {
-        final Class<?> bar = Refl.cls(
-                "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView", cl);
-        if (bar == null) {
-            log(module, "MiuiPhoneStatusBarView missing");
-            return 0;
-        }
-        return hook(module, Refl.method(bar, "updateCutoutLocation"),
-                "hyperduo-cutout", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object result = chain.proceed();
-                        syncSlots(sStatusIconContainer);
-                        return result;
-                    }
-                });
-    }
+
 
     /**
      * Learns the current Wi-Fi / mobile signal levels. Both binders call
@@ -1303,44 +888,7 @@ final class TrioHooks {
      * id to {@code transformResId}, so the first argument is the signal icon being
      * applied right now.
      */
-    private static int hookSignalIcons(XposedModule module, ClassLoader cl) {
-        final Class<?> helper = Refl.cls(
-                "com.android.systemui.statusbar.MiuiStatusBarIconViewHelper", cl);
-        if (helper == null) {
-            log(module, "MiuiStatusBarIconViewHelper missing");
-            return 0;
-        }
-        return hook(module, Refl.method(helper, "transformResId",
-                        int.class, boolean.class, boolean.class),
-                "hyperduo-signal", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object raw = chain.getArg(0);
-                        final int beforeWifi = TrioState.sWifiLevel;
-                        final int beforeMobile = TrioState.sMobileLevel;
-                        final Object result = chain.proceed();
-                        if (raw instanceof Number) {
-                            TrioState.noteSignalIcon(
-                                    resources(), ((Number) raw).intValue());
-                            // MIUI only re-applies an icon when the reading behind
-                            // it changed, so this is the event that says the
-                            // per-SIM levels are stale. The icons name no SIM, so
-                            // telephony is asked directly - and only when a
-                            // per-SIM reading is actually wanted: the glyph's
-                            // second row, or the out-of-ring stacked reading.
-                            final boolean simsMoved = (TrioConfig.get().dualSim
-                                    || TrioConfig.appearance().drawsAnySimRow())
-                                    && TrioState.pollSimsNow();
-                            if (beforeWifi != TrioState.sWifiLevel
-                                    || beforeMobile != TrioState.sMobileLevel
-                                    || simsMoved) {
-                                invalidateHosts();
-                            }
-                        }
-                        return result;
-                    }
-                });
-    }
+
 
     /**
      * Samples the mobile network type label ("5G", "5GA", "4G") that MIUI is
@@ -1358,53 +906,7 @@ final class TrioHooks {
      * plus a separate double-plus flag, so reading beforehand would surface a
      * string MIUI never paints.
      */
-    private static int hookMobileType(XposedModule module, ClassLoader cl) {
-        final Class<?> drawable = Refl.cls(
-                "com.miui.systemui.statusbar.views.MobileTypeDrawable", cl);
-        if (drawable == null) {
-            log(module, "MobileTypeDrawable missing");
-            return 0;
-        }
-        final Field type = Refl.field(drawable, "mMobileType");
-        if (type == null) {
-            log(module, "MobileTypeDrawable.mMobileType missing");
-            return 0;
-        }
-        final int sampled = hook(module, Refl.method(drawable, "measure"),
-                "hyperduo-mobile-type", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final String before = TrioState.sMobileType;
-                        final Object result = chain.proceed();
-                        final Object raw = Refl.get(type, chain.getThisObject());
-                        if (raw instanceof String
-                                && TrioState.setMobileType((String) raw)
-                                && !before.equals(TrioState.sMobileType)) {
-                            invalidateHosts();
-                        }
-                        return result;
-                    }
-                });
-        // Draw-level suppression. The classic mobile_type ImageView is re-shown
-        // by its binder's own flow, which does not go through setChildVisible -
-        // and its drawable paints text without consulting the view's bounds, so
-        // even the folded slot's 0x0 frame does not stop the ink (MIUI sets
-        // clipChildren=false up the chain). Gate only this dedicated drawable's
-        // draw, never View.draw: the sampling above stays intact either way, and
-        // the module's replacement label reads the same string from it.
-        final int drawn = hook(module, Refl.method(drawable, "draw", Canvas.class),
-                "hyperduo-mobile-type-draw", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final TrioAppearance a = TrioConfig.appearance();
-                        if (a.glyph && a.ownsType()) {
-                            return null;
-                        }
-                        return chain.proceed();
-                    }
-                });
-        return sampled + drawn;
-    }
+
 
     /**
      * Turns MIUI's own "show the network type" requests into "hide it" while the
@@ -1431,41 +933,7 @@ final class TrioHooks {
      * is drawing the type itself (out of ring). Every other call proceeds
      * unchanged, so a firmware rename or an unexpected caller costs nothing.
      */
-    private static int hookMobileTypeVisibility(XposedModule module, ClassLoader cl) {
-        final Class<?> container = Refl.cls(
-                "com.android.systemui.statusbar.views.MobileSignalAnimatorContainer", cl);
-        if (container == null) {
-            log(module, "MobileSignalAnimatorContainer missing");
-            return 0;
-        }
-        return hook(module, Refl.method(container, "setChildVisible",
-                        View.class, boolean.class),
-                "hyperduo-mobile-type-visible", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final TrioAppearance a = TrioConfig.appearance();
-                        if (a.glyph && a.ownsType()) {
-                            final Object arg0 = chain.getArg(0);
-                            final Object arg1 = chain.getArg(1);
-                            if (arg0 instanceof View && isNativeTypeView((View) arg0)) {
-                                // Both directions are suppressed, not just the
-                                // show: a false request on a visible target
-                                // makes the animator clone it into a transient
-                                // disappearance view, which paints the type
-                                // even after the slot has been folded away.
-                                // Marking it INVISIBLE first still lets the
-                                // call proceed, so MIUI cleans up any clone
-                                // bookkeeping it already holds.
-                                if (!Boolean.TRUE.equals(arg1)) {
-                                    prepareNativeTypeHide((View) arg0);
-                                }
-                                return chain.proceed(new Object[]{arg0, Boolean.FALSE});
-                            }
-                        }
-                        return chain.proceed();
-                    }
-                });
-    }
+
 
     /**
      * Drops a native type view to INVISIBLE before MIUI animates it away, so
@@ -1509,67 +977,13 @@ final class TrioHooks {
      * glyph, hand Wi-Fi back, read the signal out of ring) still applies, driven
      * by the flag the setter records.
      */
-    private static int hookIslandHide(XposedModule module, ClassLoader cl) {
-        final Class<?> container = Refl.cls(
-                "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer", cl);
-        if (container == null) {
-            log(module, "MiuiStatusBatteryContainer missing");
-            return 0;
-        }
-        final Class<?> meter = Refl.cls(
-                "com.android.systemui.statusbar.views.MiuiBatteryMeterView", cl);
-        int n = 0;
-        if (meter != null) {
-            n += hook(module, Refl.method(meter, "updateIslandChanged",
-                            boolean.class, boolean.class),
-                    "hyperduo-keep-island-battery", new XposedInterface.Hooker() {
-                        @Override
-                        public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                            return keepBatteryDuringIsland(chain);
-                        }
-                    });
-        }
-        n += hook(module, Refl.method(container, "setIsHideBattery", Boolean.class),
-                "hyperduo-island-hide", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object arg = chain.getArg(0);
-                        final boolean hide = Boolean.TRUE.equals(arg);
-                        final boolean changed = TrioState.sIslandHideBattery != hide;
-                        final Object result = chain.proceed();
-                        if (changed) {
-                            TrioState.sIslandHideBattery = hide;
-                            reactToIslandChange();
-                        }
-                        return result;
-                    }
-                });
-        return n;
-    }
+
 
     /** Real island requests per meter, so a mid-island disable can replay them. */
     private static final Map<Object, boolean[]> BATTERY_ISLAND_REQUESTS =
             new WeakHashMap<Object, boolean[]>();
 
-    private static Object keepBatteryDuringIsland(XposedInterface.Chain chain) throws Throwable {
-        final boolean requested = Boolean.TRUE.equals(chain.getArg(0));
-        final boolean trigger = Boolean.TRUE.equals(chain.getArg(1));
-        synchronized (BATTERY_ISLAND_REQUESTS) {
-            BATTERY_ISLAND_REQUESTS.put(chain.getThisObject(),
-                    new boolean[] {requested, trigger});
-        }
-        // Declining the replacement while the module owns the glyph: the flag
-        // that stops the container from reserving the meter's width stays down,
-        // so the bar keeps the glyph exactly where it was. The island window
-        // and its clearance stay MIUI's - only the meter's participation moves.
-        final Object result = chain.proceed(new Object[] {
-                Boolean.valueOf(requested && !TrioConfig.get().enabled),
-                Boolean.valueOf(trigger)});
-        final Object meter = chain.getThisObject();
-        Refl.set(Refl.field(meter.getClass(), "mStoreIsAddBatteryIsland"), meter,
-                Boolean.valueOf(requested));
-        return result;
-    }
+
 
     /**
      * Re-drives every meter whose island request the module declined, with the
@@ -1700,67 +1114,7 @@ final class TrioHooks {
      * comparison stays as the safety net for tint changes that arrive without
      * this method (a config change, a restored view tree).
      */
-    private static int hookMeterTint(XposedModule module, ClassLoader cl) {
-        final Class<?> meter = Refl.cls(
-                "com.android.systemui.statusbar.views.MiuiBatteryMeterView", cl);
-        if (meter == null) {
-            log(module, "MiuiBatteryMeterView missing");
-            return 0;
-        }
-        return hook(module, Refl.method(meter, "updateLightDarkTint",
-                        ArrayList.class, float.class, int.class, int.class,
-                        int.class, boolean.class),
-                "hyperduo-meter-tint", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object result = chain.proceed();
-                        final Object self = chain.getThisObject();
-                        if (self instanceof View) {
-                            // Signature: (areas, intensity, tintColor, light, dark,
-                            // useTint). Resolve the ink exactly the way
-                            // TrioState.foreground() resolves it from the very
-                            // fields this call installs, so the tint-path colour
-                            // and the draw-path colour are one number by
-                            // construction.
-                            final boolean useTint = Boolean.TRUE.equals(chain.getArg(5));
-                            final float intensity =
-                                    (chain.getArg(1) instanceof Float)
-                                            ? ((Float) chain.getArg(1)).floatValue() : 0f;
-                            final Object tintObj = chain.getArg(2);
-                            final Object lightObj = chain.getArg(3);
-                            final Object darkObj = chain.getArg(4);
-                            final int tint = (tintObj instanceof Integer)
-                                    ? (Integer) tintObj : 0;
-                            final int light = (lightObj instanceof Integer)
-                                    ? (Integer) lightObj : 0;
-                            final int dark = (darkObj instanceof Integer)
-                                    ? (Integer) darkObj : 0;
-                            final View v = (View) self;
-                            final Object owner = batteryContainerOf(v);
-                            if (owner instanceof ViewGroup) {
-                                final ViewGroup row = (ViewGroup) owner;
-                                // Hidden native icons can stop reporting tint. The
-                                // meter still receives each frame, so archive it
-                                // against its own row before any glyph reads ink.
-                                final int previous = rowInk(row);
-                                final TrioTint.Inputs inputs = new TrioTint.Inputs(
-                                        chain.getArg(0), intensity, tint, light, dark, useTint);
-                                final View host = hostIn(row);
-                                final int ink = inputs.colour(host != null ? host : v);
-                                ROW_TINTS.put(row, inputs);
-                                ROW_INK.put(row, ink);
-                                applyOutRingInk(row, ink);
-                                if (previous != ink) {
-                                    if (host != null) {
-                                        host.invalidate();
-                                    }
-                                }
-                            }
-                        }
-                        return result;
-                    }
-                });
-    }
+
 
     /**
      * The colour SystemUI last painted the icons of one row in, keyed by that
@@ -1817,69 +1171,7 @@ final class TrioHooks {
      * {@code setIconColor} is the one MIUI added around it. Only the colour
      * argument is read; the rest of the signature is left alone.
      */
-    private static int hookIconTint(XposedModule module, ClassLoader cl) {
-        final Class<?> icon = Refl.cls("com.android.systemui.statusbar.StatusBarIconView", cl);
-        if (icon == null) {
-            log(module, "StatusBarIconView missing");
-            return 0;
-        }
-        final XposedInterface.Hooker hooker = new XposedInterface.Hooker() {
-            @Override
-            public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                final Object result = chain.proceed();
-                final List<Object> args = chain.getArgs();
-                if (args == null) {
-                    return result;
-                }
-                int colour = 0;
-                for (int i = 0; i < args.size(); i++) {
-                    final Object arg = args.get(i);
-                    if (arg instanceof Integer) {
-                        colour = (Integer) arg;
-                        break;
-                    }
-                }
-                if (colour == 0) {
-                    return result;
-                }
-                // Filed against the row this icon belongs to, not one global
-                // cell: the status bar and the control centre are tinted in the
-                // same frame and to opposite colours, so a shared cell hands
-                // whichever was tinted last to both and inverts one of them.
-                final Object self = chain.getThisObject();
-                if (self instanceof View) {
-                    final View row = rowOf((View) self);
-                    if (row != null) {
-                        // A neighbouring icon may lie in a different tint area.
-                        // Its raw tint must never overwrite the battery's own
-                        // area-aware dispatch, regardless of callback order.
-                        if (ROW_TINTS.containsKey(row)) {
-                            return result;
-                        }
-                        if (!args.isEmpty() && args.get(0) instanceof ArrayList<?>) {
-                            final View host = row instanceof ViewGroup
-                                    ? hostIn((ViewGroup) row) : null;
-                            colour = new TrioTint.Inputs(args.get(0), 0f, colour,
-                                    0xFFFFFFFF, 0xFF000000, true)
-                                    .colour(host != null ? host : (View) self);
-                        }
-                        ROW_INK.put(row, colour);
-                    }
-                }
-                return result;
-            }
-        };
-        int n = 0;
-        n += hook(module, Refl.method(icon, "onDarkChanged",
-                        java.util.ArrayList.class, float.class, int.class),
-                "hyperduo-tint-dark", hooker);
-        n += hook(module, Refl.method(icon, "setIconColor", int.class, boolean.class),
-                "hyperduo-tint-set", hooker);
-        if (n == 0) {
-            log(module, "no icon tint hook");
-        }
-        return n;
-    }
+
 
     /**
      * Hides the status bar's own clock while the capsule is drawing the time.
@@ -1931,60 +1223,7 @@ final class TrioHooks {
      * different view and are deliberately left alone. Hiding the bar's clock must
      * not blank the time on the lock screen.
      */
-    private static int hookStatusClock(XposedModule module, ClassLoader cl) {
-        final Class<?> clockClass = Refl.cls("com.android.systemui.statusbar.views.MiuiClock", cl);
-        if (clockClass == null) {
-            log(module, "MiuiClock missing");
-            return 0;
-        }
-        final Method setMultiTaskVisibility =
-                Refl.method(clockClass, "setMultiTaskVisibility", int.class);
-        if (setMultiTaskVisibility == null) {
-            log(module, "MiuiClock.setMultiTaskVisibility missing");
-            return 0;
-        }
-        sClockSetter = setMultiTaskVisibility;
-        final Class<?> barView = Refl.cls(
-                "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView", cl);
-        if (barView == null) {
-            log(module, "MiuiPhoneStatusBarView missing");
-            return 0;
-        }
-        final Method onFinishInflate = Refl.method(barView, "onFinishInflate");
-        if (onFinishInflate == null) {
-            log(module, "MiuiPhoneStatusBarView.onFinishInflate missing");
-            return 0;
-        }
-        final XposedInterface.Hooker hooker = new XposedInterface.Hooker() {
-            @Override
-            public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                final Object result = chain.proceed();
-                final Object self = chain.getThisObject();
-                if (!(self instanceof View)) {
-                    return result;
-                }
-                final View bar = (View) self;
-                // Posted: the bar's children are inflated after this returns on
-                // some builds, so a clock found here may not be the last one.
-                bar.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        final View clock = findClock(bar, clockClass);
-                        if (clock == null) {
-                            return;
-                        }
-                        if (sStatusClock != clock) {
-                            sStatusClock = clock;
-                            sClockHidden = false;
-                        }
-                        applyClockVisibility();
-                    }
-                });
-                return result;
-            }
-        };
-        return hook(module, onFinishInflate, "hyperduo-status-clock", hooker);
-    }
+
 
     /**
      * The first {@code MiuiClock} at or under {@code bar}, or null.
@@ -2090,64 +1329,7 @@ final class TrioHooks {
      * is asked for there. The layout path and the draw pass keep their own
      * attempts; all three end in the same idempotent call.
      */
-    private static int hookKeyguardBar(XposedModule module, ClassLoader cl) {
-        final Class<?> bar = Refl.cls(
-                "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView", cl);
-        if (bar == null) {
-            log(module, "MiuiKeyguardStatusBarView missing");
-            return 0;
-        }
-        final XposedInterface.Hooker hooker = new XposedInterface.Hooker() {
-            @Override
-            public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                final Object result = chain.proceed();
-                final Object self = chain.getThisObject();
-                if (!(self instanceof View)) {
-                    return result;
-                }
-                final View row = (View) self;
-                synchronized (KEYGUARD_ROWS) { KEYGUARD_ROWS.put(row, Boolean.TRUE); }
-                // Posted, not run here: the row's icons are inflated as part of
-                // attaching, and naming slots before that would name them to a
-                // controller that has nothing to refresh yet.
-                row.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        // MIUI re-lays the row's icons out after it attaches, and a
-                        // GONE plus a zero-size layout does not survive that: the log
-                        // shows the mobile views folded (v=8, w=0) and then back
-                        // (v=0, w=56) a moment later. The row's own ignore list is
-                        // what MIUI consults when it lays them out, so the slots this
-                        // module draws itself are named there.
-                        blockIcons(row);
-                        foldContainers(row);
-                    }
-                });
-                return result;
-            }
-        };
-        // initCallback is the one that matters, and it is later than it looks:
-        // onAttachedToWindow only calls super and then hands the real work to
-        // initCallback, which is also reached from setDependency. It is the
-        // method that finishes configuring the row - setNeedLimitIcon(true),
-        // setAnimatorController - and that configuration is what undoes a fold
-        // made while attaching, which is how the mobile views came back at
-        // v=0 w=56 after being folded to v=8 w=0. Folding after initCallback
-        // is what survives.
-        //
-        // The View entry points are kept as well: on some builds initCallback
-        // is absent and attaching is the only moment the row is complete.
-        int n = hook(module, Refl.method(bar, "initCallback", String.class),
-                "hyperduo-keyguard-init", hooker);
-        n += hook(module, Refl.method(bar, "miuiOnAttachedToWindow"),
-                "hyperduo-keyguard-bar", hooker);
-        n += hook(module, Refl.method(bar, "onAttachedToWindow"),
-                "hyperduo-keyguard-attach", hooker);
-        if (n == 0) {
-            log(module, "no keyguard row attach hook");
-        }
-        return n;
-    }
+
 
     /**
      * Names the slots this module draws itself in MIUI's own ignore list for the
@@ -2226,38 +1408,7 @@ final class TrioHooks {
      * constructed without it, which is why naming the slots in MIUI's list left
      * the lock screen's signal icons on screen.
      */
-    private static int hookIconAdded(XposedModule module, ClassLoader cl) {
-        final Class<?> manager = Refl.cls(
-                "com.android.systemui.statusbar.phone.ui.IconManager", cl);
-        if (manager == null) {
-            log(module, "IconManager missing");
-            return 0;
-        }
-        final Method[] methods = manager.getDeclaredMethods();
-        int n = 0;
-        for (int i = 0; i < methods.length; i++) {
-            final Method m = methods[i];
-            if (!"addHolder".equals(m.getName()) || m.getParameterTypes().length != 4) {
-                continue;
-            }
-            n += hook(module, m, "hyperduo-icon-added", new XposedInterface.Hooker() {
-                @Override
-                public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                    final Object result = chain.proceed();
-                    final Object slot = chain.getArg(1);
-                    if (result instanceof View && slot instanceof String
-                            && foldedSlots().contains(slot)) {
-                        hideIcon((View) result);
-                    }
-                    return result;
-                }
-            });
-        }
-        if (n == 0) {
-            log(module, "no addHolder hook");
-        }
-        return n;
-    }
+
 
     /**
      * Takes an icon out of the layout and out of drawing.
@@ -2341,29 +1492,7 @@ final class TrioHooks {
      * battery view is hidden (island, minimalism, control-center collapse) never
      * draws the glyph, and stripping its signal icons would leave it empty.
      */
-    private static int hookIconContainerLayout(XposedModule module, ClassLoader cl) {
-        final Class<?> container = Refl.cls(
-                "com.android.systemui.statusbar.views.MiuiStatusIconContainer", cl);
-        if (container == null) {
-            log(module, "MiuiStatusIconContainer missing");
-            return 0;
-        }
-        sIconContainerClass = container;
-        sIgnoredSlotsField = Refl.field(container, "ignoredSlots");
-        return hook(module, Refl.method(container, "onLayout",
-                        boolean.class, int.class, int.class, int.class, int.class),
-                "hyperduo-icon-layout", new XposedInterface.Hooker() {
-                    @Override
-                    public Object intercept(XposedInterface.Chain chain) throws Throwable {
-                        final Object result = chain.proceed();
-                        final Object self = chain.getThisObject();
-                        if (self instanceof ViewGroup) {
-                            settle((ViewGroup) self);
-                        }
-                        return result;
-                    }
-                });
-    }
+
 
     /**
      * Brings one icon container into its steady state: our slots suppressed, the
@@ -2891,7 +2020,7 @@ final class TrioHooks {
             // The first layout usually runs before MIUI populates the container,
             // so the header alone is not enough: the children are dumped below by
             // signature as soon as they exist.
-            final XposedModule module = sModule;
+            final LegacyLogger module = sModule;
             if (module != null) {
                 log(module, "container " + container.getClass().getSimpleName()
                         + " owned=" + owned
@@ -2918,7 +2047,7 @@ final class TrioHooks {
             DIAG_SIG.put(container, children);
             sDiagDumps++;
         }
-        final XposedModule module = sModule;
+        final LegacyLogger module = sModule;
         if (module != null) {
             log(module, "children of " + container.getClass().getSimpleName()
                     + " at " + location[0] + "," + location[1] + ":" + children);
@@ -5153,7 +4282,7 @@ final class TrioHooks {
         return null;
     }
 
-    private static void log(XposedModule module, String msg) {
+    private static void log(LegacyLogger module, String msg) {
         try {
             module.log(LOG_INFO, TAG, msg);
         } catch (Throwable ignored) {
@@ -5167,7 +4296,7 @@ final class TrioHooks {
      * module instance along.
      */
     static void log(int priority, String msg) {
-        final XposedModule module = sModule;
+        final LegacyLogger module = sModule;
         if (module == null) {
             return;
         }

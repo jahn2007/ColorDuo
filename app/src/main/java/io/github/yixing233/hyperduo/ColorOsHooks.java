@@ -42,8 +42,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import io.github.libxposed.api.XposedInterface;
-import io.github.libxposed.api.XposedModule;
+import de.robv.android.xposed.XC_MethodHook.MethodHookParam;
+
 
 /** ColorOS 17 adapter, verified against OnePlus SystemUI 17.99.02 (API 37). */
 final class ColorOsHooks {
@@ -98,87 +98,17 @@ final class ColorOsHooks {
 
     static boolean isInstalled() { return installed; }
 
-    static void drainRetiredCallbacks() { MAIN.removeCallbacksAndMessages(null); }
 
-    /** Called on the main looper: leave only platform/SystemUI objects in the handoff. */
-    static Map<String, Object> retire() {
-        ColorOsReload.retiring = true;
-        MAIN.removeCallbacksAndMessages(null);
-        Map<String, Object> saved = new HashMap<>();
-        saved.put("settings", TrioConfig.get().toBundle());
-        saved.put("context", context);
-        saved.put("wifi", wifiFlow);
-        saved.put("wifiSample", new Object[] {renderedWifi.connected, renderedWifi.level,
-                renderedWifi.carrierMerged, renderedWifi.kind});
-        saved.put("battery", new Object[] {batteryLevelFlow, chargeFlow, savingFlow});
-        Map<Integer, Object[]> mobiles = new HashMap<>();
-        for (Map.Entry<Integer, Mobile> entry : MOBILES.entrySet()) {
-            Mobile m = entry.getValue();
-            mobiles.put(entry.getKey(), new Object[] {m.icon, m.type, m.cellularIcon,
-                    m.cellularType, m.iconGroup, m.inService, m.renderedType});
-        }
-        saved.put("mobiles", mobiles);
-        List<Object[]> meters = new ArrayList<>();
-        for (WeakReference<Host> reference : new ArrayList<>(HOSTS.values())) {
-            Host h = reference.get();
-            if (h == null) continue;
-            meters.add(new Object[] {h.meter, h.viewModel});
-            h.onViewDetachedFromWindow(h.meter);
-            h.meter.removeOnAttachStateChangeListener(h);
-            h.glyph.setCallback(null);
-        }
-        saved.put("meters", meters);
-        HOSTS.clear();
-        CHILDREN.clear();
-        ColorOsNetworkType.stop();
-        ColorOsReload.closeCallbacks();
-        return saved;
-    }
 
-    /** Do not approve unloading while vendor IPC or a sampler is still executing old code. */
-    static boolean stopWorkers() throws InterruptedException {
-        HandlerThread thread;
-        synchronized (ColorOsHooks.class) {
-            thread = batteryThread;
-            if (batteryWorker != null) batteryWorker.removeCallbacksAndMessages(null);
-            if (thread != null) thread.quit();
-        }
-        if (chargerWorker != null) chargerWorker.shutdownNow();
-        if (thread != null) thread.join(3000L);
-        boolean stopped = thread == null || !thread.isAlive();
-        return (chargerWorker == null || chargerWorker.awaitTermination(3, TimeUnit.SECONDS)) && stopped;
-    }
 
-    @SuppressWarnings("unchecked")
-    static void resume(Map<String, Object> saved) {
-        TrioConfig.restoreForReload((android.os.Bundle) saved.get("settings"));
-        wifiFlow = saved.get("wifi");
-        Object[] w = (Object[]) saved.get("wifiSample");
-        renderedWifi = new WifiSample((Boolean) w[0], (Integer) w[1], (Boolean) w[2], (String) w[3]);
-        Object[] b = (Object[]) saved.get("battery");
-        batteryLevelFlow = b[0]; chargeFlow = b[1]; savingFlow = b[2];
-        Map<Integer, Object[]> mobiles = (Map<Integer, Object[]>) saved.get("mobiles");
-        for (Map.Entry<Integer, Object[]> entry : mobiles.entrySet()) {
-            Object[] v = entry.getValue();
-            Mobile m = new Mobile();
-            m.icon = v[0]; m.type = v[1]; m.cellularIcon = v[2]; m.cellularType = v[3];
-            m.iconGroup = v[4]; m.inService = v[5]; m.renderedType = (String) v[6];
-            MOBILES.put(entry.getKey(), m);
-        }
-        Context oldContext = (Context) saved.get("context");
-        if (oldContext != null) start(oldContext);
-        for (Object[] pair : (List<Object[]>) saved.get("meters")) {
-            Host h = host((ViewGroup) pair[0]);
-            h.viewModel = pair[1];
-            h.capture();
-            h.apply();
-        }
-        invalidateHosts();
-    }
+
+
+
+
 
     /** Coalesce ColorOS reads off the main thread; the inherited MIUI path stays synchronous. */
     static synchronized boolean dispatchBatteryRefresh(Runnable refresh) {
-        if (ColorOsReload.retiring) return true;
+        
         if (!installed) return false;
         if (batteryWorker == null) {
             HandlerThread thread = new HandlerThread("ColorDuo-battery",
@@ -199,7 +129,7 @@ final class ColorOsHooks {
     }
 
     static boolean dispatchBatteryPublish(Runnable publish) {
-        if (ColorOsReload.retiring) return true;
+        
         if (!installed || Looper.myLooper() == Looper.getMainLooper()) return false;
         MAIN.post(publish);
         return true;
@@ -259,7 +189,7 @@ final class ColorOsHooks {
         return sample;
     }
 
-    static void install(XposedModule module, ClassLoader loader) {
+    static void install(ClassLoader loader) {
         meterClass = Refl.cls(METER_CLASS, loader);
         phoneBarClass = Refl.cls("com.android.systemui.statusbar.phone.PhoneStatusBarView", loader);
         statusIconsClass = Refl.cls("com.android.systemui.statusbar.phone.StatusIconContainer", loader);
@@ -272,7 +202,7 @@ final class ColorOsHooks {
         if (meterClass == null || phoneBarClass == null) {
             throw new IllegalStateException("ColorOS battery/status bar classes unavailable");
         }
-        TrioHooks.useLogger(module);
+        TrioHooks.useLogger(new LegacyLogger());
         chargerWorker = Executors.newSingleThreadExecutor(task -> {
                     Thread thread = new Thread(() -> {
                         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
@@ -284,164 +214,142 @@ final class ColorOsHooks {
         charger = new ColorOsCharger(new ColorOsChargerClient(loader),
                 chargerWorker, SystemClock::elapsedRealtime);
         installed = true;
-        TrioConfig.install(module);
+        TrioConfig.install();
         TrioConfig.addListener(ColorOsHooks::invalidateHosts);
 
         int count = 0;
-        // OEM/R8 builds can inline binder helpers. Filter framework writes by our exact child
-        // instances too, so an inlined style update cannot leave a stale restoration snapshot.
-        count += hook(module, Refl.method(ImageView.class, "setImageDrawable", Drawable.class), chain -> {
-            Host owner = childOwner((View) chain.getThisObject());
-            if (owner == null || owner.image != chain.getThisObject()
-                    || owner.moduleWriting || owner.nativeDepth != 0) return chain.proceed();
-            Drawable drawable = (Drawable) chain.getArg(0);
-            if (drawable == owner.glyph) return chain.proceed();
+        count += LegacyHook.around(Refl.method(ImageView.class, "setImageDrawable", Drawable.class), frame -> {
+            MethodHookParam p = frame.param;
+            Host owner = childOwner((View) p.thisObject);
+            if (owner == null || owner.image != p.thisObject || owner.moduleWriting || owner.nativeDepth != 0) return;
+            Drawable drawable = (Drawable) p.args[0];
+            if (drawable == owner.glyph) return;
             owner.nativeDrawable = drawable;
-            if (!owner.active) return chain.proceed();
+            if (!owner.active) return;
             ViewGroup.LayoutParams current = owner.image.getLayoutParams();
             if (current instanceof LinearLayout.LayoutParams
                     && (current.width != owner.ownedWidth || current.height != owner.ownedHeight)) {
                 owner.nativeParams = new LinearLayout.LayoutParams((LinearLayout.LayoutParams) current);
             }
-            Object result = chain.proceed(new Object[] {owner.glyph});
-            owner.enforceImageSize();
-            return result;
+            p.args[0] = owner.glyph;
+            frame.data = owner;
+        }, frame -> {
+            if (frame.data instanceof Host && !frame.param.hasThrowable()) ((Host) frame.data).enforceImageSize();
         });
-        count += hook(module, Refl.method(ImageView.class, "setScaleType", ImageView.ScaleType.class), chain -> {
-            Host owner = childOwner((View) chain.getThisObject());
-            if (owner == null || owner.image != chain.getThisObject()
-                    || owner.moduleWriting || owner.nativeDepth != 0) return chain.proceed();
-            owner.nativeScaleType = (ImageView.ScaleType) chain.getArg(0);
-            return owner.active ? chain.proceed(new Object[] {ImageView.ScaleType.FIT_XY}) : chain.proceed();
-        });
-        count += hook(module, Refl.method(View.class, "setVisibility", int.class), chain -> {
-            View view = (View) chain.getThisObject();
+        count += LegacyHook.around(Refl.method(ImageView.class, "setScaleType", ImageView.ScaleType.class), frame -> {
+            MethodHookParam p = frame.param;
+            Host owner = childOwner((View) p.thisObject);
+            if (owner == null || owner.image != p.thisObject || owner.moduleWriting || owner.nativeDepth != 0) return;
+            owner.nativeScaleType = (ImageView.ScaleType) p.args[0];
+            if (owner.active) p.args[0] = ImageView.ScaleType.FIT_XY;
+        }, frame -> {});
+        count += LegacyHook.around(Refl.method(View.class, "setVisibility", int.class), frame -> {
+            MethodHookParam p = frame.param;
+            View view = (View) p.thisObject;
             Host owner = childOwner(view);
-            if (owner == null || owner.moduleWriting || owner.nativeDepth != 0) return chain.proceed();
-            owner.nativeVisibility.put(view, (Integer) chain.getArg(0));
+            if (owner == null || owner.moduleWriting || owner.nativeDepth != 0) return;
+            owner.nativeVisibility.put(view, (Integer) p.args[0]);
             Integer desired = owner.visibilityOverrides.get(view);
-            return owner.active && desired != null ? chain.proceed(new Object[] {desired}) : chain.proceed();
-        });
+            if (owner.active && desired != null) p.args[0] = desired;
+        }, frame -> {});
         for (Method method : meterClass.getDeclaredMethods()) {
             String name = method.getName();
             if (name.equals("onFinishInflate") || name.equals("onAttachedToWindow")
                     || name.equals("bindViewModel") || name.equals("onDarkChanged")
                     || name.equals("onConfigurationChanged") || name.equals("disable")
                     || name.equals("onHiddenChanged") || name.equals("setHiddenIconListChanged")) {
-                count += hook(module, method, chain -> {
-                    ViewGroup meter = (ViewGroup) chain.getThisObject();
-                    Host host = host(meter);
-                    if (chain.getExecutable().getName().equals("bindViewModel")) {
-                        host.viewModel = chain.getArg(0);
-                    }
-                    return nativeUpdate(host, chain);
-                });
+                count += LegacyHook.around(method, frame -> {
+                    Host h = host((ViewGroup) frame.param.thisObject);
+                    if (name.equals("bindViewModel") && frame.param.args.length > 0) h.viewModel = frame.param.args[0];
+                    beginNative(h, frame);
+                }, ColorOsHooks::finishNative);
             }
         }
-
-        // All binder writes happen against the native view state. Capture the result once the
-        // outermost binder call finishes, then put our drawable back. This also handles the old
-        // horizontal style, which uses a separate ProgressBar instead of battery_icon_view.
         Class<?> binder = Refl.cls(BATTERY + "ui.binder.BatteryViewBinder", loader);
         if (binder != null) for (Method method : binder.getDeclaredMethods()) {
             if (!method.getName().startsWith("bind")) continue;
-            count += hook(module, method, chain -> {
-                Host owner = null;
-                for (Object arg : chain.getArgs()) {
-                    if (arg instanceof View) {
-                        owner = existingHost((View) arg);
-                        if (owner != null) break;
-                    }
+            count += LegacyHook.around(method, frame -> {
+                for (Object arg : frame.param.args) {
+                    if (!(arg instanceof View)) continue;
+                    Host owner = existingHost((View) arg);
+                    if (owner != null) { beginNative(owner, frame); break; }
                 }
-                return owner == null ? chain.proceed() : nativeUpdate(owner, chain);
-            });
+            }, ColorOsHooks::finishNative);
         }
-
-        count += captureWifiFlow(module, loader, WIFI + "data.repository.WifiRepositorySwitcher");
-        count += captureWifiFlow(module, loader, WIFI + "data.repository.prod.WifiRepositoryImpl");
+        count += captureWifiFlow(loader, WIFI + "data.repository.WifiRepositorySwitcher");
+        count += captureWifiFlow(loader, WIFI + "data.repository.prod.WifiRepositoryImpl");
         // Observe the model actually converted into the native icon. Merely reading an unused
         // WhileSubscribed repository can keep returning its initial Inactive snapshot forever.
         Class<?> wifiIcons = Refl.cls(WIFI + "ui.model.WifiIcon$Companion", loader);
         if (wifiIcons != null) for (Method method : wifiIcons.getDeclaredMethods()) {
             if (!method.getName().equals("fromModel") || method.getParameterCount() != 3) continue;
-            count += hook(module, method, chain -> {
-                Object result = chain.proceed();
-                WifiSample sample = wifiSample(chain.getArg(0));
+            count += LegacyHook.after( method, param -> {
+                Object result = param.getResult();
+                WifiSample sample = wifiSample(param.args[0]);
                 WifiSample previous = renderedWifi;
                 renderedWifi = sample;
                 if (!java.util.Objects.equals(previous.connected, sample.connected)
                         || previous.level != sample.level || previous.carrierMerged != sample.carrierMerged) {
                     invalidateHosts();
                 }
-                return result;
+                
             });
         }
-        count += captureMobileModels(module, loader, "OplusCellularIconViewModelImpl", false);
-        count += captureMobileModels(module, loader, "OplusMobileIconViewModel", true);
+        count += captureMobileModels(loader, "OplusCellularIconViewModelImpl", false);
+        count += captureMobileModels(loader, "OplusMobileIconViewModel", true);
         // This call remains in both initViews and the live Flow collector in the reference DEX.
         // Observe explicit null updates too, so a disconnect cannot retain the last label.
         Class<?> mobileBinding = Refl.cls(
                 "com.oplus.systemui.statusbar.pipeline.mobile.ui.view.OplusStatusBarMobileViewBinder$Os17Binding", loader);
         Class<?> networkType = Refl.cls(
                 "com.android.systemui.statusbar.pipeline.mobile.domain.model.OplusNetworkTypeTextModel", loader);
-        if (networkType != null) count += hook(module,
-                Refl.method(mobileBinding, "bindNetworkTypeText", networkType), chain -> {
-                    Object result = chain.proceed();
-                    Object model = ColorOsPolicy.nativeMember(chain.getThisObject(),
+        if (networkType != null) count += LegacyHook.after(
+                Refl.method(mobileBinding, "bindNetworkTypeText", networkType), param -> {
+                    Object result = param.getResult();
+                    Object model = ColorOsPolicy.nativeMember(param.thisObject,
                             "oplusViewModel", "getOplusViewModel");
                     Mobile mobile = captureMobileModel(model, true);
                     if (mobile != null) {
-                        String text = ColorOsPolicy.networkType(chain.getArg(0));
+                        String text = ColorOsPolicy.networkType(param.args[0]);
                         if (!text.equals(mobile.renderedType)) {
                             mobile.renderedType = text;
                             invalidateHosts();
                         }
                     }
-                    return result;
+                    
                 });
         for (String name : new String[] {"getBatteryLevel", "getChargeState", "isSavingMode"}) {
             Method method = Refl.method(Refl.cls(BATTERY + "data.repository.BatteryRepositoryImpl", loader), name);
             if (method == null) continue;
-            count += hook(module, method, chain -> {
-                Object result = chain.proceed();
+            count += LegacyHook.after( method, param -> {
+                Object result = param.getResult();
                 if (name.equals("getBatteryLevel")) batteryLevelFlow = result;
                 else if (name.equals("getChargeState")) chargeFlow = result;
                 else savingFlow = result;
-                return result;
+                
             });
         }
 
         TrioHooks.log(TrioHooks.LOG_INFO, "ColorOS adapter installed, hooks=" + count
-                + " frameworkApi=" + module.getApiVersion()
+                + " frameworkApi=" + de.robv.android.xposed.XposedBridge.getXposedVersion()
                 + " SystemUI=" + METER_CLASS);
     }
 
-    private static int hook(XposedModule module, Executable method, XposedInterface.Hooker callback) {
-        if (method == null) return 0;
-        try {
-            method.setAccessible(true);
-            module.hook(method).setId("colorduo:" + method.toGenericString()).intercept(chain ->
-                    ColorOsReload.retiring ? chain.proceed() : callback.intercept(chain));
-            return 1;
-        } catch (Throwable error) {
-            TrioHooks.log(TrioHooks.LOG_WARN, "ColorOS skip " + method.getName() + ": " + error);
-            return 0;
-        }
-    }
 
-    private static int captureMobileModels(XposedModule module, ClassLoader loader,
+
+    private static int captureMobileModels(ClassLoader loader,
                                           String name, boolean wrapper) {
         Class<?> type = Refl.cls(MOBILE + name, loader);
         if (type == null) return 0;
         int count = 0;
         for (Constructor<?> constructor : type.getDeclaredConstructors()) {
-            count += hook(module, constructor, chain -> {
-                Object result = chain.proceed();
-                Mobile mobile = captureMobileModel(chain.getThisObject(), wrapper);
+            count += LegacyHook.after( constructor, param -> {
+                Object result = param.getResult();
+                Mobile mobile = captureMobileModel(param.thisObject, wrapper);
                 if (mobile != null) {
                     if (wrapper) mobile.renderedType = null;
                     // Kotlin/R8 constructor parameter order differs across firmware.
-                    for (Object interactor : chain.getArgs()) {
+                    for (Object interactor : param.args) {
                         Object group = ColorOsPolicy.nativeMember(interactor,
                                 "networkTypeIconGroup", "getNetworkTypeIconGroup");
                         if (group != null) {
@@ -453,14 +361,14 @@ final class ColorOsHooks {
                     }
                 }
                 invalidateHosts();
-                return result;
+                
             });
         }
         // Keep getter observation for firmware variants that do not inline these calls.
         for (String getter : new String[] {"getIcon", "getNetworkTypeText"}) {
-            count += hook(module, Refl.method(type, getter), chain -> {
-                Object result = chain.proceed();
-                Mobile mobile = mobileFor(chain.getThisObject());
+            count += LegacyHook.after( Refl.method(type, getter), param -> {
+                Object result = param.getResult();
+                Mobile mobile = mobileFor(param.thisObject);
                 if (mobile != null) {
                     if (getter.equals("getIcon")) {
                         if (wrapper) mobile.icon = result;
@@ -470,7 +378,7 @@ final class ColorOsHooks {
                         else mobile.cellularType = result;
                     }
                 }
-                return result;
+                
             });
         }
         return count;
@@ -496,34 +404,34 @@ final class ColorOsHooks {
         return id < 0 ? null : MOBILES.computeIfAbsent(id, ignored -> new Mobile());
     }
 
-    private static int captureWifiFlow(XposedModule module, ClassLoader loader, String className) {
+    private static int captureWifiFlow(ClassLoader loader, String className) {
         Method method = Refl.method(Refl.cls(className, loader), "getWifiNetwork");
         if (method == null) {
             TrioHooks.log(TrioHooks.LOG_WARN, "ColorOS missing " + className + ".getWifiNetwork");
             return 0;
         }
-        return hook(module, method, chain -> {
-            Object flow = chain.proceed();
+        return LegacyHook.after( method, param -> {
+            Object flow = param.getResult();
             wifiFlow = flow;
-            return flow;
+            
         });
     }
 
-    private static Object nativeUpdate(Host host, XposedInterface.Chain chain) throws Throwable {
-        boolean outer = host.nativeDepth++ == 0;
-        if (outer) host.restoreBattery();
-        try {
-            return chain.proceed();
-        } finally {
-            host.nativeDepth--;
-            if (outer) {
-                try {
-                    host.capture();
-                    host.apply();
-                } catch (Throwable error) {
-                    host.fail(error);
-                }
-            }
+
+
+    private static void beginNative(Host host, LegacyHook.Frame frame) {
+        frame.data = host;
+        frame.outer = host.nativeDepth++ == 0;
+        if (frame.outer) host.restoreBattery();
+    }
+
+    private static void finishNative(LegacyHook.Frame frame) {
+        if (!(frame.data instanceof Host)) return;
+        Host host = (Host) frame.data;
+        host.nativeDepth--;
+        if (frame.outer) {
+            try { host.capture(); host.apply(); }
+            catch (Throwable error) { host.fail(error); }
         }
     }
 
@@ -555,9 +463,9 @@ final class ColorOsHooks {
     }
 
     static void invalidateHosts() {
-        if (ColorOsReload.retiring) return;
+        
         MAIN.post(() -> {
-            if (ColorOsReload.retiring) return;
+            
             if (refreshQueued) return;
             refreshQueued = true;
             MAIN.post(() -> {
@@ -568,7 +476,7 @@ final class ColorOsHooks {
     }
 
     private static void refreshHosts() {
-        if (ColorOsReload.retiring) return;
+        
         ClockTicker.refreshNow();
         for (WeakReference<Host> reference : new ArrayList<>(HOSTS.values())) {
             Host host = reference.get();
@@ -589,7 +497,7 @@ final class ColorOsHooks {
         tickerStarted = true;
         MAIN.post(new Runnable() {
             @Override public void run() {
-                if (ColorOsReload.retiring) return;
+                
                 boolean interactive = true;
                 PowerManager power = context.getSystemService(PowerManager.class);
                 if (power != null) interactive = power.isInteractive();
@@ -741,7 +649,7 @@ final class ColorOsHooks {
         }
 
         void apply() {
-            if (ColorOsReload.retiring) return;
+            
             boolean previous = moduleWriting;
             moduleWriting = true;
             try { applyInternal(); }

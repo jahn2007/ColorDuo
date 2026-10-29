@@ -105,7 +105,7 @@ import io.github.yixing233.hyperduo.R
 import io.github.yixing233.hyperduo.TrioAppearance
 import io.github.yixing233.hyperduo.TrioPreviewView
 import io.github.yixing233.hyperduo.TrioSettings
-import io.github.libxposed.service.XposedService
+import io.github.yixing233.hyperduo.LegacyFrameworkInfo
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -281,7 +281,7 @@ fun SettingsScreen(repository: SettingsRepository) {
     // taken while the destination composes.
     val settingsState = remember { mutableStateOf(repository.read()) }
     var settings by settingsState
-    val serviceState = remember { mutableStateOf(HyperDuoApp.xposedService) }
+    val serviceState = remember { mutableStateOf(HyperDuoApp.legacyStatus) }
     var service by serviceState
     var editing by remember { mutableStateOf<RoleColor?>(null) }
     // Which component's sheet is open. Owned here rather than inside the page so the sheet
@@ -307,9 +307,9 @@ fun SettingsScreen(repository: SettingsRepository) {
     // The framework service can bind or die at any moment; both the status row
     // and every remote write have to follow it.
     DisposableEffect(repository) {
-        val listener: (XposedService?) -> Unit = { service = it }
-        HyperDuoApp.addServiceListener(listener)
-        onDispose { HyperDuoApp.removeServiceListener(listener) }
+        val listener: (LegacyFrameworkInfo?) -> Unit = { service = it }
+        HyperDuoApp.addStatusListener(listener)
+        onDispose { HyperDuoApp.removeStatusListener(listener) }
     }
 
     // Held here rather than inside the About tab: a LazyColumn disposes items
@@ -1383,7 +1383,7 @@ private fun SliderSpec.firstHint(a: TrioAppearance): String? {
 /** About: activation state, the counters, module info, updates and the log switch. */
 private fun LazyListScope.aboutTab(
     settings: TrioSettings,
-    service: XposedService?,
+    service: LegacyFrameworkInfo?,
     updater: UpdateController,
     showMessage: (String) -> Unit,
     update: ((SettingsRepository) -> Unit) -> Unit,
@@ -1776,7 +1776,7 @@ private fun InfoRow(label: String, value: String, bottomPadding: Dp = 24.dp) {
  * the block keeps its proportions instead of looking squat on a tablet.
  */
 @Composable
-private fun ActivatedRow(settings: TrioSettings, service: XposedService?) {
+private fun ActivatedRow(settings: TrioSettings, service: LegacyFrameworkInfo?) {
     val context = LocalContext.current
     val module = remember(context) { readModuleInfo(context) }
 
@@ -1911,7 +1911,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
  * needs to report a bug, so they stay on rather than being dropped for symmetry.
  */
 @Composable
-private fun InfoCard(service: XposedService?) {
+private fun InfoCard(service: LegacyFrameworkInfo?) {
     val context = LocalContext.current
 
     // Every framework getter is a binder call into the daemon: bind them to the
@@ -2354,7 +2354,7 @@ private fun readDeviceName(context: Context): String {
  * shows an equivalent count, and it is the fastest way to spot a mis-scoped
  * install.
  */
-private fun scopeCount(service: XposedService?): Int {
+private fun scopeCount(service: LegacyFrameworkInfo?): Int {
     if (service == null) return 0
     return runCatching { service.scope.size }.getOrDefault(0)
 }
@@ -2391,7 +2391,7 @@ private fun enabledCount(settings: TrioSettings): Int {
  * wrapped: a service that died between binding and this call must degrade to
  * [unknown] rather than take the settings screen down with it.
  */
-private fun readFrameworkInfo(service: XposedService?, unknown: String): String {
+private fun readFrameworkInfo(service: LegacyFrameworkInfo?, unknown: String): String {
     if (service == null) return unknown
     return runCatching {
         val name = service.frameworkName
@@ -2401,7 +2401,7 @@ private fun readFrameworkInfo(service: XposedService?, unknown: String): String 
     }.getOrDefault(unknown)
 }
 
-private fun readScope(service: XposedService?, unknown: String): String {
+private fun readScope(service: LegacyFrameworkInfo?, unknown: String): String {
     if (service == null) return unknown
     val packages = runCatching { service.scope }.getOrNull()
     if (packages.isNullOrEmpty()) return unknown

@@ -1,31 +1,17 @@
-# ColorDuo
+# ColorDuo Legacy
 
-面向 **ColorOS 17** 的仿 iPhone Duo 状态栏模块，将电池、Wi-Fi 和移动信号整合为一个可配置的图标。
+`legacy` 分支使用传统 Xposed API（最低 API 82），作用域为系统界面 `com.android.systemui`。
 
-完全由 Codex 维护，fork 自 [HyperDuo](https://github.com/yixing233/HyperDuo)。
+- 保留 Wi-Fi / 网络类型优先级修复、双卡信号、充电功率及暂停充电灰度范围设置。
+- 使用标准 before/after Hook；不依赖 libxposed API 或服务。
+- 设置保存在设备保护存储，通过仅允许 SystemUI 读取的 ContentProvider 同步。广播只通知重新读取，设置实时生效；丢失通知时每 5 秒重试。
+- 首次运行复制原应用本地配置，保留各样式配置；不删除现代版原有本地配置文件。
+- APK 更新后重启 SystemUI 或手机，不支持现代 API 102 的 APK 热重载。
 
-[下载](https://github.com/chorusfruit-233/ColorDuo/releases) · [配置说明](docs/CONFIGURATION.md) · [更新记录](docs/CHANGELOG.md) · [问题反馈](https://github.com/chorusfruit-233/ColorDuo/issues)
+## 构建
 
-## 功能
+推送到 `legacy` 或手动运行 **Build Legacy APK**。工作流先执行回归检查，再使用 JDK 21、Android SDK 37、Build Tools 37.0.0 构建开发签名 Debug APK，校验签名、版本和 legacy 模块入口并上传 APK、SHA256SUMS 和 build-info.json。
 
-- 自定义电池圆环、Wi-Fi、双卡信号和网络类型的布局与配色。
-- 支持组件优先顺序、环外信号、充电功率和电池温度。
-- 设置实时生效。
+开发签名与本 fork 的现代测试版一致，可覆盖安装；与上游正式签名不同。切换版本后需重启 SystemUI。legacy 版需要单独真机验证。
 
-## 使用
-
-需要 root 和支持 libxposed API 102 的 LSPosed。目前以一加 13 的 ColorOS 17 为参考适配。
-
-1. 从 Releases 下载并安装 APK。
-2. 在 LSPosed 中启用 **ColorDuo**，作用域勾选 **系统界面（com.android.systemui）**。
-3. 重启 SystemUI 或手机，在绘图页添加所需组件。
-
-从旧版首次升级需要重启一次 SystemUI；此后 ColorOS 适配器支持 API 102 的 APK 自动热重载（需要框架支持）。同签名覆盖安装保留配置。
-
-## 文档
-
-[适配记录](docs/COLOROS17.md) · [开发指南](docs/COLOROS17-DEVELOPMENT.md) · [文档索引](docs/README.md)
-
-## 许可证
-
-[GPL-3.0-only](LICENSE)。感谢 yixing233 与 HyperDuo 贡献者提供原始绘图、布局和设置界面。
+基于 [ColorDuo](https://github.com/chorusfruit-233/ColorDuo) / [HyperDuo](https://github.com/yixing233/HyperDuo)，遵循 GPL-3.0-only。

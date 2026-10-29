@@ -31,7 +31,7 @@
 
         <meta-data
             android:name="xposedminversion"
-            android:value="93" />
+            android:value="82" />
         <meta-data
             android:name="xposeddescription"
             android:value="@string/xposed_description" />
@@ -39,8 +39,14 @@
             android:name="xposedscope"
             android:resource="@array/xposed_scope" />
         <meta-data
-            android:name="libxposed"
+            android:name="xposedmodule"
             android:value="true" />
+
+        <provider
+            android:name=".LegacySettingsProvider"
+            android:authorities="${applicationId}.legacy.settings"
+            android:exported="true"
+            android:directBootAware="true" />
 
         <!-- LSPosed / Vector manager entry point. -->
         <activity

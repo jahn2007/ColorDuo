@@ -39,20 +39,12 @@ def github_prefix(owner):
 
 def module_metadata(apk):
     with zipfile.ZipFile(apk) as archive:
-        prop = archive.read("META-INF/xposed/module.prop").decode()
-        entries = archive.read("META-INF/xposed/java_init.list").decode().strip()
-        scope = archive.read("META-INF/xposed/scope.list").decode().strip()
-    values = dict(re.findall(r"^([^#=\s]+)\s*=\s*(.*?)\s*$", prop, re.M))
-    for field in ("minApiVersion", "targetApiVersion"):
-        if not values.get(field, "").isdigit() or int(values[field]) <= 0:
-            raise ValueError(f"Missing or invalid Xposed {field}")
-    if int(values["targetApiVersion"]) < int(values["minApiVersion"]):
-        raise ValueError("Xposed target API is below the minimum API")
-    if not entries or not all(re.fullmatch(r"[\w$]+(?:\.[\w$]+)+", x) for x in entries.splitlines()):
-        raise ValueError("Missing or invalid Xposed Java entry point")
-    if scope != "com.android.systemui":
-        raise ValueError("Unexpected module scope")
-    return {"properties": values, "javaEntries": entries.splitlines(), "scope": scope}
+        if any(n.startswith("META-INF/xposed/") for n in archive.namelist()):
+            raise ValueError("Legacy APK must not declare a modern Xposed entry")
+        entries = archive.read("assets/xposed_init").decode("utf-8-sig").strip().splitlines()
+        if entries != ["io.github.yixing233.hyperduo.HyperDuoModule"]:
+            raise ValueError("Invalid legacy Xposed entry point")
+    return {"api": "legacy", "javaEntries": entries, "scope": "com.android.systemui"}
 
 
 def verify_apk(apk, variant, metadata, sdk):
@@ -66,6 +58,10 @@ def verify_apk(apk, variant, metadata, sdk):
                 "versionCode": str(metadata["versionCode"])}
     if any(attrs.get(key) != value for key, value in expected.items()):
         raise ValueError("APK identity/version differs from Gradle output metadata")
+    manifest = subprocess.check_output([str(tools / "aapt2"), "dump", "xmltree", str(apk),
+                                        "--file", "AndroidManifest.xml"], text=True)
+    if '"libxposed"' in manifest or '"xposedmodule"' not in manifest:
+        raise ValueError("APK manifest is not a legacy Xposed module")
     signature = subprocess.check_output(
         [str(tools / "apksigner"), "verify", "--print-certs", str(apk)], text=True)
     certs = set(re.findall(r"certificate SHA-256 digest: ([0-9a-fA-F]{64})", signature))

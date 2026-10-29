@@ -18,7 +18,7 @@ final class ColorOsNetworkType {
     private static final Map<Integer, Line> LINES = new HashMap<>();
 
     static void sync(Context context, List<SubscriptionInfo> subscriptions) {
-        if (subscriptions == null || ColorOsReload.retiring) return;
+        if (subscriptions == null) return;
         TelephonyManager manager = context.getSystemService(TelephonyManager.class);
         if (manager == null) return;
         Set<Integer> active = new HashSet<>();
@@ -78,7 +78,7 @@ final class ColorOsNetworkType {
         private final Line line;
         DisplayCallback(Line line) { this.line = line; }
         @Override public void onDisplayInfoChanged(TelephonyDisplayInfo info) {
-            if (ColorOsReload.retiring) return;
+            
             line.network = info.getNetworkType();
             line.override = info.getOverrideNetworkType();
             ColorOsHooks.invalidateHosts();

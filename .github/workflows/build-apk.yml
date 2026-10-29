@@ -1,15 +1,15 @@
-name: Build APK
+name: Build Legacy APK
 
 on:
   push:
-    branches: [main]
+    branches: [legacy]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: apk-${{ github.ref }}
+  group: legacy-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
