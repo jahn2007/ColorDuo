@@ -30,5 +30,9 @@ jobs:
         run: sh tests/coloros-settings.sh
       - name: Battery units and power rendering
         run: python3 tests/coloros-power.py
+      - name: Legacy native binding stability
+        run: python3 tests/legacy-binding.py
+      - name: Settings summary formatting
+        run: python3 tests/settings-format.py
       - name: Main, keyguard and shade hosts
         run: python3 tests/coloros-hosts.py

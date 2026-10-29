@@ -20,24 +20,7 @@ import io.github.yixing233.hyperduo.Prefs
 import io.github.yixing233.hyperduo.TrioSettings
 import io.github.yixing233.hyperduo.LegacySettings
 
-/**
- * Reads and writes every setting, and mirrors each write to the Xposed
- * framework so the hooked SystemUI process sees it immediately.
- *
- * <p>Two stores are involved and only one of them is authoritative for the
- * hooked process:
- *
- * <ul>
- *   <li>the app's own {@link SharedPreferences} file, which drives this UI and
- *       survives while the framework is absent;
- *   <li>the framework's remote-preference group of the same name, which is what
- *       the hooked process actually reads.
- * </ul>
- *
- * <p>The mirror is therefore not "sync on connect and forget": every single
- * write is pushed, otherwise a value the user changes while the service is
- * bound would never reach SystemUI.
- */
+/** Persistent device-protected legacy preferences. Broadcasts only request a provider re-read. */
 class SettingsRepository(context: Context) {
 
     private val appContext = context.applicationContext
@@ -135,6 +118,7 @@ class SettingsRepository(context: Context) {
                 Prefs.encodeLayout(next.ringZones))
             e.putBoolean(Prefs.styledKey(Prefs.KEY_SHOW_WIFI, style), next.showWifi)
             e.putBoolean(Prefs.styledKey(Prefs.KEY_SHOW_MOBILE, style), next.showMobile)
+            e.putInt(Prefs.styledKey(Prefs.KEY_SIGNAL_MODE, style), next.signalMode)
             e.putBoolean(Prefs.styledKey(Prefs.KEY_SHOW_VALUE, style), next.showValue)
             e.putBoolean(Prefs.styledKey(Prefs.KEY_SHOW_BOLT, style), next.showBolt)
             e.putBoolean(Prefs.styledKey(Prefs.KEY_SHOW_SIM_1, style), next.showSim1)
@@ -161,7 +145,11 @@ class SettingsRepository(context: Context) {
         // and the ring three, so the mapping from "choice number" to "zone" is read
         // from the same list rather than assumed to be "index - 1". Assuming it was
         // what wrote the capsule's left cell into the bottom zone.
-        val slots = if (current.trioStyle == Prefs.STYLE_CAPSULE) {
+        val slots = if (part == io.github.yixing233.hyperduo.TrioZones.Part.SIM_PAIR) {
+            listOf(io.github.yixing233.hyperduo.TrioZones.Zone.TOP,
+                io.github.yixing233.hyperduo.TrioZones.Zone.CENTRE,
+                io.github.yixing233.hyperduo.TrioZones.Zone.BOTTOM)
+        } else if (current.trioStyle == Prefs.STYLE_CAPSULE) {
             listOf(io.github.yixing233.hyperduo.TrioZones.Zone.TOP,
                 io.github.yixing233.hyperduo.TrioZones.Zone.LEFT,
                 io.github.yixing233.hyperduo.TrioZones.Zone.CENTRE,
@@ -178,6 +166,8 @@ class SettingsRepository(context: Context) {
             )
         } else {
             val next = current.copy()
+            if (part == io.github.yixing233.hyperduo.TrioZones.Part.SIM_PAIR
+                && current.ringZones.any { it.contains(Prefs.PART_SIM_PAIR) }) next.showMobile = false
             val id = io.github.yixing233.hyperduo.TrioZones.encodePart(part)
             next.ringZones = io.github.yixing233.hyperduo.TrioSettings.copyZones(current.ringZones)
             for (zone in next.ringZones.indices) {
@@ -283,6 +273,32 @@ class SettingsRepository(context: Context) {
      * settings screen offers one row for them.
      */
     fun setDotScale(value: Int) = writeInt(Prefs.KEY_DOT_SCALE, value)
+    fun setSplitMode(value: Int) = writeInt(Prefs.KEY_SPLIT_MODE, value.coerceIn(Prefs.MIN_SPLIT_MODE, Prefs.MAX_SPLIT_MODE))
+    fun setSplitLink(value: Int) = writeInt(Prefs.KEY_SPLIT_LINK, value.coerceIn(Prefs.MIN_SPLIT_LINK, Prefs.MAX_SPLIT_LINK))
+    fun setSplitCap(value: Int) = writeInt(Prefs.KEY_SPLIT_CAP, value.coerceIn(Prefs.MIN_SPLIT_CAP, Prefs.MAX_SPLIT_CAP))
+    fun setPairShape(value: Int) = writeInt(Prefs.KEY_PAIR_SHAPE, value.coerceIn(Prefs.MIN_PAIR_SHAPE, Prefs.MAX_PAIR_SHAPE))
+    fun setPairMirror(value: Int) = writeInt(Prefs.KEY_PAIR_MIRROR, value.coerceIn(Prefs.MIN_PAIR_MIRROR, Prefs.MAX_PAIR_MIRROR))
+    fun setPairReverse(value: Int) = writeInt(Prefs.KEY_PAIR_REVERSE, value.coerceIn(Prefs.MIN_PAIR_REVERSE, Prefs.MAX_PAIR_REVERSE))
+    fun setPairSingle(value: Int) = writeInt(Prefs.KEY_PAIR_SINGLE, value.coerceIn(Prefs.MIN_PAIR_SINGLE, Prefs.MAX_PAIR_SINGLE))
+    fun setPairPitch(value: Int) = writeInt(Prefs.KEY_PAIR_PITCH, value.coerceIn(Prefs.MIN_PAIR_PITCH, Prefs.MAX_PAIR_PITCH))
+    fun setPairBend(value: Int) = writeInt(Prefs.KEY_PAIR_BEND, value.coerceIn(Prefs.MIN_PAIR_BEND, Prefs.MAX_PAIR_BEND))
+    fun setPairX(value: Int) = writeInt(Prefs.KEY_PAIR_X, value.coerceIn(Prefs.MIN_PAIR_X, Prefs.MAX_PAIR_X))
+    fun setPairY(value: Int) = writeInt(Prefs.KEY_PAIR_Y, value.coerceIn(Prefs.MIN_PAIR_Y, Prefs.MAX_PAIR_Y))
+    fun setSplitLeftDistance(value: Int) = writeInt(Prefs.KEY_SPLIT_LEFT_DISTANCE, value.coerceIn(Prefs.MIN_SPLIT_LEFT_DISTANCE, Prefs.MAX_SPLIT_LEFT_DISTANCE))
+    fun setSplitLeftBend(value: Int) = writeInt(Prefs.KEY_SPLIT_LEFT_BEND, value.coerceIn(Prefs.MIN_SPLIT_LEFT_BEND, Prefs.MAX_SPLIT_LEFT_BEND))
+    fun setSplitLeftHeight(value: Int) = writeInt(Prefs.KEY_SPLIT_LEFT_HEIGHT, value.coerceIn(Prefs.MIN_SPLIT_LEFT_HEIGHT, Prefs.MAX_SPLIT_LEFT_HEIGHT))
+    fun setSplitLeftTop(value: Int) = writeInt(Prefs.KEY_SPLIT_LEFT_TOP, value.coerceIn(Prefs.MIN_SPLIT_LEFT_TOP, Prefs.MAX_SPLIT_LEFT_TOP))
+    fun setSplitLeftBottom(value: Int) = writeInt(Prefs.KEY_SPLIT_LEFT_BOTTOM, value.coerceIn(Prefs.MIN_SPLIT_LEFT_BOTTOM, Prefs.MAX_SPLIT_LEFT_BOTTOM))
+    fun setSplitLeftY(value: Int) = writeInt(Prefs.KEY_SPLIT_LEFT_Y, value.coerceIn(Prefs.MIN_SPLIT_LEFT_Y, Prefs.MAX_SPLIT_LEFT_Y))
+    fun setSplitRightDistance(value: Int) = writeInt(Prefs.KEY_SPLIT_RIGHT_DISTANCE, value.coerceIn(Prefs.MIN_SPLIT_RIGHT_DISTANCE, Prefs.MAX_SPLIT_RIGHT_DISTANCE))
+    fun setSplitRightBend(value: Int) = writeInt(Prefs.KEY_SPLIT_RIGHT_BEND, value.coerceIn(Prefs.MIN_SPLIT_RIGHT_BEND, Prefs.MAX_SPLIT_RIGHT_BEND))
+    fun setSplitRightHeight(value: Int) = writeInt(Prefs.KEY_SPLIT_RIGHT_HEIGHT, value.coerceIn(Prefs.MIN_SPLIT_RIGHT_HEIGHT, Prefs.MAX_SPLIT_RIGHT_HEIGHT))
+    fun setSplitRightTop(value: Int) = writeInt(Prefs.KEY_SPLIT_RIGHT_TOP, value.coerceIn(Prefs.MIN_SPLIT_RIGHT_TOP, Prefs.MAX_SPLIT_RIGHT_TOP))
+    fun setSplitRightBottom(value: Int) = writeInt(Prefs.KEY_SPLIT_RIGHT_BOTTOM, value.coerceIn(Prefs.MIN_SPLIT_RIGHT_BOTTOM, Prefs.MAX_SPLIT_RIGHT_BOTTOM))
+    fun setSplitRightY(value: Int) = writeInt(Prefs.KEY_SPLIT_RIGHT_Y, value.coerceIn(Prefs.MIN_SPLIT_RIGHT_Y, Prefs.MAX_SPLIT_RIGHT_Y))
+    fun setSignalIconScale(value: Int) = writeInt(Prefs.KEY_SIGNAL_ICON_SCALE, value.coerceIn(Prefs.MIN_SIGNAL_ICON_SCALE, Prefs.MAX_SIGNAL_ICON_SCALE))
+    fun setSimStackGap(value: Int) = writeInt(Prefs.KEY_SIM_STACK_GAP,
+        value.coerceIn(Prefs.MIN_SIM_STACK_GAP, Prefs.MAX_SIM_STACK_GAP))
 
     /**
      * The out-of-ring order, nearest the battery first - see [Prefs.KEY_OUT_ORDER].
@@ -391,20 +407,7 @@ class SettingsRepository(context: Context) {
     }
 
 
-    /**
-     * Tells the hooked process to re-read the settings, carrying the whole
-     * snapshot in the intent.
-     *
-     * <p>This is a second, callback-independent path: the framework's
-     * remote-preference change callback is the intended mechanism, but it has
-     * been observed to stop reaching SystemUI on device - the daemon database
-     * held the new value while the status bar kept drawing the old one. The
-     * broadcast is sent even when the service is not bound, because the hooked
-     * process is up regardless and only needs the extras.
-     *
-     * <p>Delivery is asynchronous, so no ordering against [push] is needed; both
-     * carry the same values.
-     */
+    /** Notify SystemUI to read its authenticated provider snapshot; do not accept intent extras. */
     private fun notifyModule() {
         runCatching {
             val intent = Intent(Prefs.ACTION_RELOAD)
@@ -414,7 +417,7 @@ class SettingsRepository(context: Context) {
         }.onFailure { Log.w(TAG, "cannot notify the hooked process", it) }
     }
 
-    /** Applies [block] to the framework's remote preferences, if connected. */
+
 
 
     private companion object {

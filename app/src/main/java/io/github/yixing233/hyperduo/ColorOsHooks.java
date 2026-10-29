@@ -218,40 +218,12 @@ final class ColorOsHooks {
         TrioConfig.addListener(ColorOsHooks::invalidateHosts);
 
         int count = 0;
-        count += LegacyHook.around(Refl.method(ImageView.class, "setImageDrawable", Drawable.class), frame -> {
-            MethodHookParam p = frame.param;
-            Host owner = childOwner((View) p.thisObject);
-            if (owner == null || owner.image != p.thisObject || owner.moduleWriting || owner.nativeDepth != 0) return;
-            Drawable drawable = (Drawable) p.args[0];
-            if (drawable == owner.glyph) return;
-            owner.nativeDrawable = drawable;
-            if (!owner.active) return;
-            ViewGroup.LayoutParams current = owner.image.getLayoutParams();
-            if (current instanceof LinearLayout.LayoutParams
-                    && (current.width != owner.ownedWidth || current.height != owner.ownedHeight)) {
-                owner.nativeParams = new LinearLayout.LayoutParams((LinearLayout.LayoutParams) current);
-            }
-            p.args[0] = owner.glyph;
-            frame.data = owner;
-        }, frame -> {
-            if (frame.data instanceof Host && !frame.param.hasThrowable()) ((Host) frame.data).enforceImageSize();
-        });
-        count += LegacyHook.around(Refl.method(ImageView.class, "setScaleType", ImageView.ScaleType.class), frame -> {
-            MethodHookParam p = frame.param;
-            Host owner = childOwner((View) p.thisObject);
-            if (owner == null || owner.image != p.thisObject || owner.moduleWriting || owner.nativeDepth != 0) return;
-            owner.nativeScaleType = (ImageView.ScaleType) p.args[0];
-            if (owner.active) p.args[0] = ImageView.ScaleType.FIT_XY;
-        }, frame -> {});
-        count += LegacyHook.around(Refl.method(View.class, "setVisibility", int.class), frame -> {
-            MethodHookParam p = frame.param;
-            View view = (View) p.thisObject;
-            Host owner = childOwner(view);
-            if (owner == null || owner.moduleWriting || owner.nativeDepth != 0) return;
-            owner.nativeVisibility.put(view, (Integer) p.args[0]);
-            Integer desired = owner.visibilityOverrides.get(view);
-            if (owner.active && desired != null) p.args[0] = desired;
-        }, frame -> {});
+        count += LegacyHook.around(Refl.method(ImageView.class, "setImageDrawable", Drawable.class), ColorOsHooks::beforeDrawable, ColorOsHooks::afterDrawable);
+        count += LegacyHook.around(Refl.method(ImageView.class, "setScaleType", ImageView.ScaleType.class), ColorOsHooks::beforeScaleType, frame -> {});
+        count += LegacyHook.around(Refl.method(View.class, "setVisibility", int.class), ColorOsHooks::beforeVisibility, frame -> {});
+        count += LegacyHook.around(Refl.method(ImageView.class, "getDrawable"), ColorOsHooks::beforeReadDrawable, frame -> {});
+        count += LegacyHook.around(Refl.method(View.class, "getLayoutParams"), ColorOsHooks::beforeReadLayoutParams, frame -> {});
+        count += LegacyHook.around(Refl.method(View.class, "setLayoutParams", ViewGroup.LayoutParams.class), ColorOsHooks::beforeLayoutParams, frame -> {});
         for (Method method : meterClass.getDeclaredMethods()) {
             String name = method.getName();
             if (name.equals("onFinishInflate") || name.equals("onAttachedToWindow")
@@ -419,19 +391,69 @@ final class ColorOsHooks {
 
 
 
-    private static void beginNative(Host host, LegacyHook.Frame frame) {
-        frame.data = host;
-        frame.outer = host.nativeDepth++ == 0;
-        if (frame.outer) host.restoreBattery();
+    private static void beforeDrawable(LegacyHook.Frame frame) throws Throwable {
+        MethodHookParam p=frame.param;
+        Host owner=childOwner((View)p.thisObject);
+        if(owner==null || owner.image!=p.thisObject || owner.moduleWriting)return;
+        Drawable drawable=(Drawable)p.args[0];
+        if(drawable==owner.glyph)return;
+        owner.nativeDrawable=drawable;
+        if(!owner.active)return;
+        ViewGroup.LayoutParams current=owner.image.getLayoutParams();
+        if(current instanceof LinearLayout.LayoutParams && (current.width!=owner.ownedWidth || current.height!=owner.ownedHeight))
+            owner.nativeParams=new LinearLayout.LayoutParams((LinearLayout.LayoutParams)current);
+        p.args[0]=owner.glyph;frame.data=owner;
     }
-
+    private static void afterDrawable(LegacyHook.Frame frame) throws Throwable {
+        if(frame.data instanceof Host && !frame.param.hasThrowable())((Host)frame.data).enforceImageSize();
+    }
+    private static void beforeScaleType(LegacyHook.Frame frame) {
+        MethodHookParam p=frame.param;Host owner=childOwner((View)p.thisObject);
+        if(owner==null || owner.image!=p.thisObject || owner.moduleWriting)return;
+        owner.nativeScaleType=(ImageView.ScaleType)p.args[0];
+        if(owner.active)p.args[0]=ImageView.ScaleType.FIT_XY;
+    }
+    private static void beforeVisibility(LegacyHook.Frame frame) {
+        MethodHookParam p=frame.param;View view=(View)p.thisObject;Host owner=childOwner(view);
+        if(owner==null || owner.moduleWriting)return;
+        owner.nativeVisibility.put(view,(Integer)p.args[0]);
+        Integer desired=owner.visibilityOverrides.get(view);
+        if(owner.active && desired!=null)p.args[0]=desired;
+    }
+    private static void beforeReadDrawable(LegacyHook.Frame frame) {
+        MethodHookParam p=frame.param;Host owner=childOwner((View)p.thisObject);
+        if(owner!=null && owner.image==p.thisObject && owner.active && !owner.moduleWriting && owner.nativeDepth>0)
+            p.setResult(owner.nativeDrawable);
+    }
+    private static void beforeReadLayoutParams(LegacyHook.Frame frame) {
+        MethodHookParam p=frame.param;Host owner=childOwner((View)p.thisObject);
+        if(owner!=null && owner.image==p.thisObject && owner.active && !owner.moduleWriting && owner.nativeDepth>0 && owner.nativeParams!=null)
+            p.setResult(new LinearLayout.LayoutParams(owner.nativeParams));
+    }
+    private static void beforeLayoutParams(LegacyHook.Frame frame) {
+        MethodHookParam p=frame.param;Host owner=childOwner((View)p.thisObject);
+        if(owner==null || owner.image!=p.thisObject || owner.moduleWriting || !owner.active
+                || !(p.args[0] instanceof LinearLayout.LayoutParams))return;
+        LinearLayout.LayoutParams requested=(LinearLayout.LayoutParams)p.args[0];
+        owner.nativeParams=new LinearLayout.LayoutParams(requested);
+        LinearLayout.LayoutParams visible=new LinearLayout.LayoutParams(requested);
+        visible.width=owner.ownedWidth;visible.height=owner.ownedHeight;p.args[0]=visible;
+    }
+    private static void beginNative(Host host, LegacyHook.Frame frame) throws Throwable {
+        frame.data=host;frame.outer=host.nativeDepth++==0;frame.retained=frame.outer && host.active;
+        if(frame.outer && !frame.retained)host.restoreBattery();
+    }
     private static void finishNative(LegacyHook.Frame frame) {
-        if (!(frame.data instanceof Host)) return;
-        Host host = (Host) frame.data;
-        host.nativeDepth--;
-        if (frame.outer) {
-            try { host.capture(); host.apply(); }
-            catch (Throwable error) { host.fail(error); }
+        if(!(frame.data instanceof Host))return;
+        Host host=(Host)frame.data;host.nativeDepth--;
+        if(frame.outer) {
+            try {
+                if(!frame.retained || host.find("battery_icon_view")!=host.image) {
+                    if(frame.retained)host.restoreBattery();
+                    host.image=null;host.nativeParams=null;host.capture();
+                }
+                host.apply();
+            }catch(Throwable error){host.fail(error);}
         }
     }
 
@@ -649,7 +671,6 @@ final class ColorOsHooks {
         }
 
         void apply() {
-            
             boolean previous = moduleWriting;
             moduleWriting = true;
             try { applyInternal(); }
@@ -684,6 +705,10 @@ final class ColorOsHooks {
             params.height = appearance.capsule ? TrioGeometry.capHostHeightPx(height * 3 / 4) : height;
             params.width = appearance.capsule ? TrioGeometry.capHostWidthPx(height * 3 / 4)
                     : Math.round(24 * meter.getResources().getDisplayMetrics().density);
+            if (appearance.ring && (appearance.splitMode == 1 || appearance.drawsSimPair() || appearance.signalIconScale != 100)) {
+                TrioGeometry.SplitRing shape = new TrioGeometry.SplitRing(appearance);
+                params.width = Math.max(params.width, Math.round(height * shape.width()/shape.height()));
+            }
             ownedWidth = params.width;
             ownedHeight = params.height;
             if (image.getLayoutParams().width != params.width || image.getLayoutParams().height != params.height) {

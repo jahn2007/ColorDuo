@@ -16,6 +16,7 @@ final class LegacyHook {
         final XC_MethodHook.MethodHookParam param;
         Object data;
         boolean outer;
+        boolean retained;
         Frame(XC_MethodHook.MethodHookParam param) { this.param = param; }
     }
     private static final AtomicInteger IDS = new AtomicInteger();

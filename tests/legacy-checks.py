@@ -4,10 +4,13 @@ from pathlib import Path
 import json,re,runpy,subprocess,tempfile,zipfile,xml.etree.ElementTree as ET
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE=ROOT/'app/src/main/java/io/github/yixing233/hyperduo'
-BASE='d19f8a35eff6842c2557b568961bf939d4eefa61'
+BASE='dc341d4af761b35d3c903628c6e7ba071bbb0d7f'
 for name in ['TrioRenderer.java','TrioSettings.java','TrioAppearance.java','TrioGeometry.java','TrioZones.java','DuoPolicy.java','ColorOsPolicy.java','ColorOsRadio.java','ColorOsReadings.java','ColorOsBattery.java','ColorOsCharge.java','ColorOsCharger.java','ColorOsChargerClient.java','Prefs.java']:
     old=subprocess.check_output(['git','show',f'{BASE}:app/src/main/java/io/github/yixing233/hyperduo/{name}'],cwd=ROOT)
     assert old.replace(b'\r\n',b'\n')==(SOURCE/name).read_bytes().replace(b'\r\n',b'\n'),name
+for path in ['ui/ContentControls.kt','ui/DrawingScreen.kt','ui/PartControls.kt']:
+    old=subprocess.check_output(['git','show',f'{BASE}:app/src/main/java/io/github/yixing233/hyperduo/{path}'],cwd=ROOT)
+    assert old.replace(b'\r\n',b'\n')==(SOURCE/path).read_bytes().replace(b'\r\n',b'\n'),path
 for path in SOURCE.rglob('*'):
     if path.suffix in {'.java','.kt'}:
         assert not re.search(r'^import io\.github\.libxposed',path.read_text(encoding='utf-8-sig'),re.M),path
