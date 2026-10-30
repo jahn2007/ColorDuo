@@ -4,7 +4,7 @@ from pathlib import Path
 import json,re,runpy,subprocess,tempfile,zipfile,xml.etree.ElementTree as ET
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE=ROOT/'app/src/main/java/io/github/yixing233/hyperduo'
-BASE='dc341d4af761b35d3c903628c6e7ba071bbb0d7f'
+BASE='3143568c17f006c2bb044e485a623d181ff90889'
 # Charging colours intentionally extend the renderer and settings; geometry,
 # layout, radio and battery rules still match the legacy baseline.
 for name in ['TrioGeometry.java','TrioZones.java','DuoPolicy.java','ColorOsPolicy.java','ColorOsRadio.java','ColorOsReadings.java','ColorOsBattery.java','ColorOsCharge.java','ColorOsCharger.java','ColorOsChargerClient.java']:
