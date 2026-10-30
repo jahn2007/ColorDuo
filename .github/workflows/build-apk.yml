@@ -3,6 +3,8 @@ name: Build Legacy APK
 on:
   push:
     branches: [legacy]
+  pull_request:
+    branches: [legacy]
   workflow_dispatch:
 
 permissions:

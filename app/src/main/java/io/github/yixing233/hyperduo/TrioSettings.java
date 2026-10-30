@@ -138,6 +138,12 @@ public final class TrioSettings {
     public int criticalOnLight;
     public int chargingOnDark;
     public int chargingOnLight;
+    public int quickChargingOnDark;
+    public int quickChargingOnLight;
+    public int flashChargingOnDark;
+    public int flashChargingOnLight;
+    public int superChargingOnDark;
+    public int superChargingOnLight;
     public int lowOnDark;
     public int lowOnLight;
     public int lowThreshold;
@@ -363,6 +369,12 @@ public final class TrioSettings {
         s.criticalOnLight = Prefs.DEF_COLOR_CRITICAL_ON_LIGHT;
         s.chargingOnDark = Prefs.DEF_COLOR_CHARGING_ON_DARK;
         s.chargingOnLight = Prefs.DEF_COLOR_CHARGING_ON_LIGHT;
+        s.quickChargingOnDark = Prefs.DEF_COLOR_QUICK_CHARGING_ON_DARK;
+        s.quickChargingOnLight = Prefs.DEF_COLOR_QUICK_CHARGING_ON_LIGHT;
+        s.flashChargingOnDark = Prefs.DEF_COLOR_FLASH_CHARGING_ON_DARK;
+        s.flashChargingOnLight = Prefs.DEF_COLOR_FLASH_CHARGING_ON_LIGHT;
+        s.superChargingOnDark = Prefs.DEF_COLOR_SUPER_CHARGING_ON_DARK;
+        s.superChargingOnLight = Prefs.DEF_COLOR_SUPER_CHARGING_ON_LIGHT;
         s.lowOnDark = Prefs.DEF_COLOR_LOW_ON_DARK;
         s.lowOnLight = Prefs.DEF_COLOR_LOW_ON_LIGHT;
         s.lowThreshold = Prefs.DEF_LOW_THRESHOLD;
@@ -535,6 +547,12 @@ public final class TrioSettings {
         s.criticalOnLight = p.getInt(Prefs.KEY_COLOR_CRITICAL_ON_LIGHT, Prefs.DEF_COLOR_CRITICAL_ON_LIGHT);
         s.chargingOnDark = p.getInt(Prefs.KEY_COLOR_CHARGING_ON_DARK, Prefs.DEF_COLOR_CHARGING_ON_DARK);
         s.chargingOnLight = p.getInt(Prefs.KEY_COLOR_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_CHARGING_ON_LIGHT);
+        s.quickChargingOnDark = p.getInt(Prefs.KEY_COLOR_QUICK_CHARGING_ON_DARK, Prefs.DEF_COLOR_QUICK_CHARGING_ON_DARK);
+        s.quickChargingOnLight = p.getInt(Prefs.KEY_COLOR_QUICK_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_QUICK_CHARGING_ON_LIGHT);
+        s.flashChargingOnDark = p.getInt(Prefs.KEY_COLOR_FLASH_CHARGING_ON_DARK, Prefs.DEF_COLOR_FLASH_CHARGING_ON_DARK);
+        s.flashChargingOnLight = p.getInt(Prefs.KEY_COLOR_FLASH_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_FLASH_CHARGING_ON_LIGHT);
+        s.superChargingOnDark = p.getInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_DARK, Prefs.DEF_COLOR_SUPER_CHARGING_ON_DARK);
+        s.superChargingOnLight = p.getInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_SUPER_CHARGING_ON_LIGHT);
         s.lowOnDark = p.getInt(Prefs.KEY_COLOR_LOW_ON_DARK, Prefs.DEF_COLOR_LOW_ON_DARK);
         s.lowOnLight = p.getInt(Prefs.KEY_COLOR_LOW_ON_LIGHT, Prefs.DEF_COLOR_LOW_ON_LIGHT);
         s.lowThreshold = Prefs.clamp(
@@ -942,6 +960,12 @@ public final class TrioSettings {
         s.criticalOnLight = criticalOnLight;
         s.chargingOnDark = chargingOnDark;
         s.chargingOnLight = chargingOnLight;
+        s.quickChargingOnDark = quickChargingOnDark;
+        s.quickChargingOnLight = quickChargingOnLight;
+        s.flashChargingOnDark = flashChargingOnDark;
+        s.flashChargingOnLight = flashChargingOnLight;
+        s.superChargingOnDark = superChargingOnDark;
+        s.superChargingOnLight = superChargingOnLight;
         s.lowOnDark = lowOnDark;
         s.lowOnLight = lowOnLight;
         s.lowThreshold = lowThreshold;
@@ -1057,6 +1081,12 @@ public final class TrioSettings {
             case Prefs.KEY_COLOR_CRITICAL_ON_LIGHT: criticalOnLight = src.criticalOnLight; return true;
             case Prefs.KEY_COLOR_CHARGING_ON_DARK: chargingOnDark = src.chargingOnDark; return true;
             case Prefs.KEY_COLOR_CHARGING_ON_LIGHT: chargingOnLight = src.chargingOnLight; return true;
+            case Prefs.KEY_COLOR_QUICK_CHARGING_ON_DARK: quickChargingOnDark = src.quickChargingOnDark; return true;
+            case Prefs.KEY_COLOR_QUICK_CHARGING_ON_LIGHT: quickChargingOnLight = src.quickChargingOnLight; return true;
+            case Prefs.KEY_COLOR_FLASH_CHARGING_ON_DARK: flashChargingOnDark = src.flashChargingOnDark; return true;
+            case Prefs.KEY_COLOR_FLASH_CHARGING_ON_LIGHT: flashChargingOnLight = src.flashChargingOnLight; return true;
+            case Prefs.KEY_COLOR_SUPER_CHARGING_ON_DARK: superChargingOnDark = src.superChargingOnDark; return true;
+            case Prefs.KEY_COLOR_SUPER_CHARGING_ON_LIGHT: superChargingOnLight = src.superChargingOnLight; return true;
             case Prefs.KEY_COLOR_LOW_ON_DARK: lowOnDark = src.lowOnDark; return true;
             case Prefs.KEY_COLOR_LOW_ON_LIGHT: lowOnLight = src.lowOnLight; return true;
             case Prefs.KEY_LOW_THRESHOLD: lowThreshold = src.lowThreshold; return true;
@@ -1191,6 +1221,12 @@ public final class TrioSettings {
         s.criticalOnLight = bundle.getInt(Prefs.KEY_COLOR_CRITICAL_ON_LIGHT, Prefs.DEF_COLOR_CRITICAL_ON_LIGHT);
         s.chargingOnDark = bundle.getInt(Prefs.KEY_COLOR_CHARGING_ON_DARK, Prefs.DEF_COLOR_CHARGING_ON_DARK);
         s.chargingOnLight = bundle.getInt(Prefs.KEY_COLOR_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_CHARGING_ON_LIGHT);
+        s.quickChargingOnDark = bundle.getInt(Prefs.KEY_COLOR_QUICK_CHARGING_ON_DARK, Prefs.DEF_COLOR_QUICK_CHARGING_ON_DARK);
+        s.quickChargingOnLight = bundle.getInt(Prefs.KEY_COLOR_QUICK_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_QUICK_CHARGING_ON_LIGHT);
+        s.flashChargingOnDark = bundle.getInt(Prefs.KEY_COLOR_FLASH_CHARGING_ON_DARK, Prefs.DEF_COLOR_FLASH_CHARGING_ON_DARK);
+        s.flashChargingOnLight = bundle.getInt(Prefs.KEY_COLOR_FLASH_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_FLASH_CHARGING_ON_LIGHT);
+        s.superChargingOnDark = bundle.getInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_DARK, Prefs.DEF_COLOR_SUPER_CHARGING_ON_DARK);
+        s.superChargingOnLight = bundle.getInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_SUPER_CHARGING_ON_LIGHT);
         s.lowOnDark = bundle.getInt(Prefs.KEY_COLOR_LOW_ON_DARK, Prefs.DEF_COLOR_LOW_ON_DARK);
         s.lowOnLight = bundle.getInt(Prefs.KEY_COLOR_LOW_ON_LIGHT, Prefs.DEF_COLOR_LOW_ON_LIGHT);
         s.lowThreshold = Prefs.clamp(
@@ -1359,6 +1395,12 @@ public final class TrioSettings {
         b.putInt(Prefs.KEY_COLOR_CRITICAL_ON_LIGHT, criticalOnLight);
         b.putInt(Prefs.KEY_COLOR_CHARGING_ON_DARK, chargingOnDark);
         b.putInt(Prefs.KEY_COLOR_CHARGING_ON_LIGHT, chargingOnLight);
+        b.putInt(Prefs.KEY_COLOR_QUICK_CHARGING_ON_DARK, quickChargingOnDark);
+        b.putInt(Prefs.KEY_COLOR_QUICK_CHARGING_ON_LIGHT, quickChargingOnLight);
+        b.putInt(Prefs.KEY_COLOR_FLASH_CHARGING_ON_DARK, flashChargingOnDark);
+        b.putInt(Prefs.KEY_COLOR_FLASH_CHARGING_ON_LIGHT, flashChargingOnLight);
+        b.putInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_DARK, superChargingOnDark);
+        b.putInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_LIGHT, superChargingOnLight);
         b.putInt(Prefs.KEY_COLOR_LOW_ON_DARK, lowOnDark);
         b.putInt(Prefs.KEY_COLOR_LOW_ON_LIGHT, lowOnLight);
         b.putInt(Prefs.KEY_LOW_THRESHOLD, lowThreshold);
@@ -1503,6 +1545,12 @@ public final class TrioSettings {
                 && criticalOnLight == s.criticalOnLight
                 && chargingOnDark == s.chargingOnDark
                 && chargingOnLight == s.chargingOnLight
+                && quickChargingOnDark == s.quickChargingOnDark
+                && quickChargingOnLight == s.quickChargingOnLight
+                && flashChargingOnDark == s.flashChargingOnDark
+                && flashChargingOnLight == s.flashChargingOnLight
+                && superChargingOnDark == s.superChargingOnDark
+                && superChargingOnLight == s.superChargingOnLight
                 && lowOnDark == s.lowOnDark
                 && lowOnLight == s.lowOnLight
                 && lowThreshold == s.lowThreshold
