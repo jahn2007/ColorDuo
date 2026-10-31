@@ -113,6 +113,12 @@ final class TrioState {
     static volatile boolean sChargingAttached = false;
 
     /**
+     * Whether the platform is actively charging, excluding an attached but full
+     * battery. The native bolt handoff uses this rather than battery percentage.
+     */
+    static volatile boolean sBatteryCharging = false;
+
+    /**
      * The power currently going into the battery, in watts, or {@code 0} when
      * nothing is.
      *
@@ -213,6 +219,7 @@ final class TrioState {
     int level = -1;
     boolean charging;
     boolean quickCharging;
+    ChargeSpeed chargingSpeed = ChargeSpeed.NORMAL;
     boolean chargingPaused;
     boolean low;
     boolean powerSave;
@@ -279,6 +286,7 @@ final class TrioState {
         level = Refl.getInt(fLevel, host, level);
         charging = Refl.getBool(fCharging, host, charging);
         quickCharging = Refl.getBool(fQuick, host, quickCharging);
+        chargingSpeed = charging && quickCharging ? ChargeSpeed.QUICK : ChargeSpeed.NORMAL;
         low = Refl.getBool(fLow, host, low);
         powerSave = Refl.getBool(fPowerSave, host, powerSave);
         performanceMode = Refl.getBool(fPerformance, host, performanceMode);
