@@ -510,6 +510,7 @@ final class ColorOsHooks {
     private static void refreshHosts() {
         
         ClockTicker.refreshNow();
+        TrioHooks.syncNativeBoltVisibility();
         for (WeakReference<Host> reference : new ArrayList<>(HOSTS.values())) {
             Host host = reference.get();
             if (host == null || host.nativeDepth != 0) continue;

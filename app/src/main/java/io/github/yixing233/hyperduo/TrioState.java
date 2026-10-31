@@ -113,6 +113,12 @@ final class TrioState {
     static volatile boolean sChargingAttached = false;
 
     /**
+     * Whether the platform is actively charging, excluding an attached but full
+     * battery. The native bolt handoff uses this rather than battery percentage.
+     */
+    static volatile boolean sBatteryCharging = false;
+
+    /**
      * The power currently going into the battery, in watts, or {@code 0} when
      * nothing is.
      *
