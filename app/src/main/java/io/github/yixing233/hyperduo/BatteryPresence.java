@@ -204,8 +204,7 @@ final class BatteryPresence {
         return Math.abs(currentMicroAmps) * (voltageMilliVolts / 1000f) / 1000000f;
     }
 
-    private static void publish(boolean attached, boolean charging,
-                                float watts, int temperature) {
+    private static void publish(boolean attached, boolean charging, float watts, int temperature) {
         if (ColorOsHooks.dispatchBatteryPublish(
                 () -> publish(attached, charging, watts, temperature))) return;
         final boolean beforeAttached = TrioState.sChargingAttached;
