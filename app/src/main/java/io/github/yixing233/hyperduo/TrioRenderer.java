@@ -1629,7 +1629,7 @@ public final class TrioRenderer {
     /**
      * The colour of the lit part of the ring and the value text.
      *
-     * <p>Priority: critical battery, then power-save/low battery, then charging,
+     * <p>Priority: charging, then critical battery, then power-save/low battery,
      * then the framework's own foreground. {@code isDarkBackground(fg)} tells
      * which variant of a role colour to use: a light icon colour means the status
      * bar is dark, so the light-background variant applies.
@@ -1645,14 +1645,14 @@ public final class TrioRenderer {
             return fg;
         }
         final boolean dark = isDarkBackground(fg);
+        if (charging) {
+            return chargingColor(a, speed, fg);
+        }
         if (level >= 0 && level < TrioGeometry.CRITICAL_LEVEL) {
             return dark ? a.criticalOnDark : a.criticalOnLight;
         }
         if (powerSave || low || (level >= 0 && level <= a.lowThreshold)) {
             return dark ? a.lowOnDark : a.lowOnLight;
-        }
-        if (charging) {
-            return chargingColor(a, speed, fg);
         }
         return fg;
     }
