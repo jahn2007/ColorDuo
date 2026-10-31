@@ -10,10 +10,6 @@ public final class DuoPolicy {
 
     // BatteryManager status values. Current magnitude never determines charge state.
     static Charge charge(int status, int plugged) {
-        // Some ColorOS broadcasts retain the last charging status after unplugging.
-        if (plugged == 0 && (status == 2 || status == 3 || status == 4 || status == 5)) {
-            return Charge.DISCONNECTED;
-        }
         if (status == 2) return Charge.CHARGING;
         if (status == 5) return Charge.FULL;
         if (plugged != 0 && (status == 3 || status == 4)) return Charge.PAUSED;

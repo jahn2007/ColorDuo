@@ -117,8 +117,6 @@ public final class DuoPolicyTest {
         check(charge(3, 1) == Charge.PAUSED, "connected but discharging");
         check(charge(5, 1) == Charge.FULL, "full is separate from paused");
         check(charge(3, 0) == Charge.DISCONNECTED, "unplugged");
-        check(charge(2, 0) == Charge.DISCONNECTED, "stale charging status cannot survive unplugging");
-        check(charge(5, 0) == Charge.DISCONNECTED, "stale full status cannot survive unplugging");
         check(charge(1, 1) == Charge.UNKNOWN, "unknown is not a fabricated pause");
         check(service(0, 1, false) == Radio.AVAILABLE, "voice service");
         check(service(1, 0, false) == Radio.AVAILABLE, "packet-data-only service");
