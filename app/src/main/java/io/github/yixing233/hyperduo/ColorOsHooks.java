@@ -731,7 +731,10 @@ final class ColorOsHooks {
             image.setVisibility(View.VISIBLE);
             hide("battery_content", true);
             hide("battery_percentage_view", !appearance.handsBackPercentage());
-            hide("battery_charge_icon", appearance.hidesNativeBolt());
+            // SuperVOOC's double bolt is one native unit across the forward and reverse layers.
+            boolean hideNativeBolt = appearance.hidesNativeBolt() || !TrioState.sBatteryCharging;
+            hide("battery_charge_icon", hideNativeBolt);
+            hide("battery_charge_reverse", hideNativeBolt);
             hide(clockContainer, TrioRenderer.drawsClock(state, appearance));
             syncExtra(appearance);
             syncSlots(appearance);
@@ -820,9 +823,7 @@ final class ColorOsHooks {
                 charge = value(nativeCharge);
                 if (charge == null) charge = nativeCharge;
             }
-            state.charging = observedCharge == DuoPolicy.Charge.UNKNOWN
-                    ? bool(Refl.callByName(charge, "getCharging"), TrioState.sChargingAttached)
-                    : observedCharge == DuoPolicy.Charge.CHARGING;
+            state.charging = TrioState.sBatteryCharging;
             state.chargingPaused = observedCharge == DuoPolicy.Charge.PAUSED;
             ColorOsChargeSpeed.NativeSample nativeSpeed = CHARGE_SPEED_SAMPLER.nativeSample(charge);
             ColorOsChargeSpeed.Sample protocol = observedSpeed;
