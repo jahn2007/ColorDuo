@@ -139,6 +139,16 @@ class SettingsRepository(context: Context) {
      * type slot) removes the piece. The three ints are still the three zones, which is why
      * the mapping is kept - the ring's editor drives the priority lists directly.
      */
+    fun setSignalLayout(paired: Boolean) {
+        val current = TrioSettings.from(preferences(), density)
+        applyRingAssignment(io.github.yixing233.hyperduo.TrioZones.withSignalArrangement(current, paired))
+    }
+
+    fun setBoltPosition(position: Int) {
+        val current = TrioSettings.from(preferences(), density)
+        applyRingAssignment(io.github.yixing233.hyperduo.TrioZones.withBoltPosition(current, position))
+    }
+
     fun setRingPartPosition(part: io.github.yixing233.hyperduo.TrioZones.Part, position: Int) {
         val current = TrioSettings.from(preferences(), density)
         // The choices a caller can pass are the arrangement's own cells, in the order
