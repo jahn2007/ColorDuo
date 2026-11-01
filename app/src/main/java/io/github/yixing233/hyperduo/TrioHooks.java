@@ -621,7 +621,6 @@ final class TrioHooks {
                     // is a settings change, so without the call the hand-back
                     // would wait for the next charge event.
                     Refl.invoke(sUpdateChargeAndTextField, meter);
-                    applyNativeBoltVisibility(a, meter, charging);
                 }
             });
         }
@@ -632,37 +631,10 @@ final class TrioHooks {
      * state. Some firmware derives this view from battery level when the bolt
      * style is handed back, which makes an idle phone below 100% look charging.
      */
-    private static void applyNativeBoltVisibility(
-            TrioAppearance a, Object meter, Object chargingView) {
-        if (!(meter instanceof View) || !(chargingView instanceof View)) {
-            return;
-        }
-        if (a == null || !a.glyph) {
-            return;
-        }
-        if (a.hidesNativeBolt() || !TrioState.sBatteryCharging) {
-            hide(chargingView);
-        } else {
-            showIfHidden(chargingView);
-        }
-    }
+
 
     /** Reconciles the handed-back bolt after battery events and periodic refreshes. */
-    static void syncNativeBoltVisibility() {
-        final List<View> meters = liveMeters();
-        for (int i = 0; i < meters.size(); i++) {
-            final View meter = meters.get(i);
-            meter.post(new Runnable() {
-                @Override
-                public void run() {
-                    final TrioAppearance a = TrioConfig.appearance();
-                    if (a.glyph) {
-                        applyNativeBoltVisibility(a, meter, meterChargingView(meter));
-                    }
-                }
-            });
-        }
-    }
+
 
     /** Resolves the firmware's charging-view field lazily on legacy builds. */
     private static Object meterChargingView(Object meter) {
@@ -2237,7 +2209,6 @@ final class TrioHooks {
 
     /** Repaints every trio host. Signal updates arrive off the UI thread. */
     static void invalidateHosts() {
-        syncNativeBoltVisibility();
         if (ColorOsHooks.isInstalled()) {
             ColorOsHooks.invalidateHosts();
             return;

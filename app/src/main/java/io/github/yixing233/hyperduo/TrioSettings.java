@@ -29,6 +29,7 @@ import android.os.Bundle;
 public final class TrioSettings {
 
     public boolean enabled;
+    public boolean hideHd;
     public boolean showWifi;
     public boolean showMobile;
     public boolean showValue;
@@ -293,7 +294,7 @@ public final class TrioSettings {
      * view away entirely, and turning either on brings back the same view with
      * only the requested segment drawn.
      */
-    public boolean perfTemp;
+    public boolean perfTemp;
     /** Drops the temperature unless charging; see {@link Prefs#KEY_PERF_TEMP_CHARGING_ONLY}. */
     public boolean perfTempChargingOnly;
 
@@ -320,7 +321,7 @@ public final class TrioSettings {
     public int perfWeight;
     /**
      * Overall size of the trio glyph, as a percentage of the fit the host box
-     * implies. Shrink-only; see {@link Prefs#KEY_GLYPH_SCALE}.
+     * implies. ColorOS measures a larger host for values above 100; see {@link Prefs#KEY_GLYPH_SCALE}.
      */
     public int glyphScale;
     /** Interior cell nudges, in design units; see Prefs.KEY_CAPSULE_LEFT_DX. */
@@ -337,6 +338,7 @@ public final class TrioSettings {
     public static TrioSettings defaults() {
         TrioSettings s = new TrioSettings();
         s.enabled = Prefs.DEF_ENABLED;
+        s.hideHd = Prefs.DEF_HIDE_HD;
         s.showWifi = Prefs.DEF_SHOW_WIFI;
         s.showMobile = Prefs.DEF_SHOW_MOBILE;
         s.showValue = Prefs.DEF_SHOW_VALUE;
@@ -471,6 +473,7 @@ public final class TrioSettings {
     public static TrioSettings from(SharedPreferences p, float density, int styleOverride) {
         TrioSettings s = new TrioSettings();
         s.enabled = p.getBoolean(Prefs.KEY_ENABLED, Prefs.DEF_ENABLED);
+        s.hideHd = p.getBoolean(Prefs.KEY_HIDE_HD, Prefs.DEF_HIDE_HD);
         // The style first: the component switches below are stored per arrangement, so
         // which key to read depends on it.
         s.navStyle = Prefs.normalizeNavStyle(p.getInt(Prefs.KEY_NAV_STYLE, Prefs.DEF_NAV_STYLE));
@@ -927,6 +930,7 @@ public final class TrioSettings {
     public TrioSettings copy() {
         TrioSettings s = new TrioSettings();
         s.enabled = enabled;
+        s.hideHd = hideHd;
         s.showWifi = showWifi;
         s.showMobile = showMobile;
         s.showValue = showValue;
@@ -1049,6 +1053,7 @@ public final class TrioSettings {
         }
         switch (key) {
             case Prefs.KEY_ENABLED: enabled = src.enabled; return true;
+            case Prefs.KEY_HIDE_HD: hideHd = src.hideHd; return true;
             case Prefs.KEY_SHOW_WIFI: showWifi = src.showWifi; return true;
             case Prefs.KEY_SHOW_MOBILE: showMobile = src.showMobile; return true;
             case Prefs.KEY_SHOW_VALUE: showValue = src.showValue; return true;
@@ -1160,6 +1165,7 @@ public final class TrioSettings {
             return defaults();
         }
         s.enabled = bundle.getBoolean(Prefs.KEY_ENABLED, Prefs.DEF_ENABLED);
+        s.hideHd = bundle.getBoolean(Prefs.KEY_HIDE_HD, Prefs.DEF_HIDE_HD);
         // The style first, for the same reason as the stored read: the component switches below
         // are per arrangement.
         s.navStyle = Prefs.normalizeNavStyle(bundle.getInt(Prefs.KEY_NAV_STYLE, Prefs.DEF_NAV_STYLE));
@@ -1363,6 +1369,7 @@ public final class TrioSettings {
         b.putInt(Prefs.KEY_TRIO_STYLE, Prefs.normalizeTrioStyle(trioStyle));
         final int style = Prefs.normalizeTrioStyle(trioStyle);
         b.putBoolean(Prefs.KEY_ENABLED, enabled);
+        b.putBoolean(Prefs.KEY_HIDE_HD, hideHd);
         b.putBoolean(Prefs.styledKey(Prefs.KEY_SHOW_WIFI, style), showWifi);
         b.putBoolean(Prefs.styledKey(Prefs.KEY_SHOW_MOBILE, style), showMobile);
         b.putBoolean(Prefs.styledKey(Prefs.KEY_SHOW_VALUE, style), showValue);
@@ -1463,7 +1470,7 @@ public final class TrioSettings {
      * {@code TrioConfig}, which must not notify the listeners (and re-fold every
      * container) when the delayed read saw the same values the first one did -
      * but a full comparison is also what a snapshot type ought to answer.
-     */
+     */
     /**
      * Normalises a stored font path to a non-null string.
      *
@@ -1486,6 +1493,7 @@ public final class TrioSettings {
         }
         final TrioSettings s = (TrioSettings) o;
         return enabled == s.enabled
+                && hideHd == s.hideHd
                 && showWifi == s.showWifi
                 && showMobile == s.showMobile
                 && showValue == s.showValue
@@ -1617,6 +1625,7 @@ public final class TrioSettings {
         // two performance switches are folded in anyway so that the contract
         // holds if anything ever does.
         int h = (enabled ? 1 : 0) ^ (mobileTypeMode << 1) ^ trioStyle;
+        h = h * 31 + (hideHd ? 1 : 0);
         h = h * 31 + (perfPower ? 1 : 0);
         h = h * 31 + (perfTemp ? 1 : 0);
         h = h * 31 + perfScale;

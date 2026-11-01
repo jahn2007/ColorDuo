@@ -51,6 +51,7 @@ class SettingsRepository(context: Context) {
 
     // ------------------------------------------------------------- appearance
 
+    fun setHideHd(value: Boolean) = writeBoolean(Prefs.KEY_HIDE_HD, value)
     fun setEnabled(value: Boolean) = writeBoolean(Prefs.KEY_ENABLED, value)
     fun setShowWifi(value: Boolean) = writeStyled(style(), Prefs.KEY_SHOW_WIFI) { e, k ->
         e.putBoolean(k, value) }

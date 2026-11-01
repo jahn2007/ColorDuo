@@ -14,8 +14,8 @@ import java.util.Locale;
 
 /** Read-only protocol sampling; current and wattage never select a charging tier. */
 final class ColorOsChargeSpeed {
-    // OnePlus's oplus_configfs.c exposes OPLUS_CHARGER_SUBTYPE on the USB device.
-    static final String TYPE_PATH = "/sys/class/oplus_chg/usb/fast_chg_type";
+    // OnePlus's oplus_configfs.c exposes OPLUS_CHARGER_SUBTYPE as the normalized protocol_type on the common device.
+    static final String TYPE_PATH = "/sys/class/oplus_chg/common/protocol_type";
     private static final long POLL_MILLIS = 1000L;
     private static final int MAX_BYTES = 64;
 

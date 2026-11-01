@@ -36,3 +36,7 @@ jobs:
         run: python3 tests/settings-format.py
       - name: Main, keyguard and shade hosts
         run: python3 tests/coloros-hosts.py
+      - name: Header sizing and clip retention
+        run: python3 tests/coloros-sizing.py
+      - name: Clip diagnostics
+        run: python3 tests/coloros-diagnostics.py

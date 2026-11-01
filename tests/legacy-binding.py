@@ -28,6 +28,7 @@ class BindingTest {
             Object proceed(Object[] replacement) throws Throwable{return action.run(replacement);}
         }
     }
+    static class ColorOsSizing { static ViewGroup.LayoutParams retainLayoutParams(View v,ViewGroup.LayoutParams p){return p;} }
     static class Drawable { }
     static class View {
         static final int VISIBLE=0,GONE=8;

@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -395,6 +396,8 @@ private fun DrawingEditorCard(
                 modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
             )
 
+            DrawingSizeControls(settings,scene,dark,update)
+
             // The capsule container's shape, under Quick Edit because that is where the style
             // tiles are: picking the capsule and then sizing it are the same decision, and the
             // component-order section is about where pieces GO, not what holds them. Behind a
@@ -530,7 +533,9 @@ private fun DrawingEditorCard(
             title = stringResource(R.string.capsule_container_title),
             onDismissRequest = { containerSheet = false },
         ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = bottomInset)) {
+            Column(modifier = Modifier.fillMaxWidth()
+                .heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.72f).dp)
+                .verticalScroll(rememberScrollState()).padding(bottom = bottomInset)) {
                 CapsuleContainerRows(settings, update, Modifier.padding(horizontal = 4.dp))
             }
         }
@@ -1618,6 +1623,40 @@ private fun OrderButton(
  * current lambda; one captured at composition would close over an older snapshot
  * and flip a switch based on what was on screen several edits ago.
  */
+@Composable
+private fun DrawingSizeControls(
+    settings: TrioSettings,
+    scene: PreviewScene,
+    dark: Boolean,
+    update: ((SettingsRepository) -> Unit) -> Unit,
+) {
+    val a=TrioAppearance.of(settings)
+    val density=LocalDensity.current
+    val inset=WindowInsets.statusBars.getTop(density)
+    val height=if(inset>0) inset else with(density) { 32.dp.roundToPx() }
+    val scale=geometrySliders().first { it.titleRes(a)==R.string.glyph_scale_title }
+    SliderRow(scale,settings,update)
+    Text(stringResource(R.string.readability_size_limit),
+        style=MiuixTheme.textStyles.footnote2,
+        color=MiuixTheme.colorScheme.onSurfaceVariantSummary)
+    Text(stringResource(R.string.readability_actual_preview),style=MiuixTheme.textStyles.subtitle)
+    AndroidView(
+        modifier=Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(12.dp)),
+        factory={ context -> TrioPreviewView(context).also {
+            it.setPhysicalHeightLimit(height)
+            applyPreviewState(it,settings,scene,dark)
+        } },
+        update={ view ->
+            view.setPhysicalHeightLimit(height)
+            applyPreviewState(view,settings,scene,dark)
+        },
+    )
+    Text(stringResource(R.string.readability_actual_hint),
+        style=MiuixTheme.textStyles.footnote2,
+        color=MiuixTheme.colorScheme.onSurfaceVariantSummary)
+
+}
+
 @Composable
 private fun DrawingGlyph(
     settings: TrioSettings,
