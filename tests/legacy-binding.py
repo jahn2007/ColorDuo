@@ -187,3 +187,7 @@ class BindingTest {
 with tempfile.TemporaryDirectory(prefix='colorduo-legacy-binding-') as tmp:
     source=Path(tmp)/'BindingTest.java';source.write_text(harness,encoding='utf-8')
     subprocess.run(['java',str(source)],check=True)
+
+# Exercise the exact production native bolt policy after the binding callbacks.
+import runpy
+runpy.run_path(str(ROOT/"tests/legacy-bolt.py"),run_name="__main__")

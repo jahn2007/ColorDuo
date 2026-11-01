@@ -787,9 +787,7 @@ final class ColorOsHooks {
             image.setVisibility(View.VISIBLE);
             hide("battery_content", true);
             hide("battery_percentage_view", !appearance.handsBackPercentage());
-            boolean hideNativeBolt = appearance.hidesNativeBolt() || (!state.charging && !state.chargingPaused);
-            hide("battery_charge_icon", hideNativeBolt);
-            hide("battery_charge_reverse", hideNativeBolt);
+            syncNativeBolt(appearance);
             hide(clockContainer, TrioRenderer.drawsClock(state, appearance));
             syncExtra(appearance);
             syncSlots(appearance);
@@ -852,6 +850,26 @@ final class ColorOsHooks {
                         note -> TrioHooks.log(TrioHooks.LOG_INFO,note));
             } catch(Throwable error) {
                 TrioHooks.log(TrioHooks.LOG_WARN,"ColorDuoTrace draw unavailable: "+error);
+            }
+        }
+
+        /** Keep native layer choices, with a visible primary fallback for a stale hidden snapshot. */
+        void syncNativeBolt(TrioAppearance appearance) {
+            View forward = find("battery_charge_icon");
+            View reverse = find("battery_charge_reverse");
+            boolean hidden = appearance.hidesNativeBolt() || (!state.charging && !state.chargingPaused);
+            boolean nativeVisible = Integer.valueOf(View.VISIBLE).equals(nativeVisibility.get(forward))
+                    || Integer.valueOf(View.VISIBLE).equals(nativeVisibility.get(reverse));
+            View fallback = !hidden && !nativeVisible
+                    ? (forward != null ? forward : reverse) : null;
+            for (View view : new View[] {forward, reverse}) {
+                Integer original = nativeVisibility.get(view);
+                if (view == null || original == null) continue;
+                int desired = hidden ? View.GONE : view == fallback ? View.VISIBLE : original;
+                if (hidden || view == fallback) visibilityOverrides.put(view, desired);
+                else visibilityOverrides.remove(view);
+                // Do not flash GONE between restoring the snapshot and showing the fallback.
+                if (view.getVisibility() != desired) view.setVisibility(desired);
             }
         }
 

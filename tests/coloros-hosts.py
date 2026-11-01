@@ -21,7 +21,7 @@ def method(name):
     return match.group()
 
 
-methods = "\n".join(method(name) for name in ("applyInternal", "resize", "restoreBatteryInternal", "syncExtra"))
+methods = "\n".join(method(name) for name in ("applyInternal", "resize", "restoreBatteryInternal", "syncExtra", "syncNativeBolt"))
 harness = r'''
 package io.github.yixing233.hyperduo;
 import java.util.*;
@@ -142,6 +142,8 @@ public final class ColorOsHostTest {
         final ViewGroup meter=new LinearLayout();
         final State state=new State();
         final Glyph glyph=new Glyph();
+        final View forward=new View(), reverse=new View();
+        View find(String id){return id.equals("battery_charge_icon")?forward:id.equals("battery_charge_reverse")?reverse:null;}
         final ImageView image=new ImageView();
         final Drawable nativeDrawable=image.drawable;
         final LinearLayout.LayoutParams nativeParams=new LinearLayout.LayoutParams(18,16);
@@ -162,6 +164,9 @@ public final class ColorOsHostTest {
             ViewGroup parent=constraintParent?new ViewGroup():new LinearLayout();
             parent.addView(meter,0,new LinearLayout.LayoutParams(-2,-1));
             meter.addView(image,0,new LinearLayout.LayoutParams(18,16));
+            nativeVisibility.put(forward,View.VISIBLE);
+            nativeVisibility.put(reverse,View.GONE);
+            reverse.visibility=View.GONE;
             nativeVisibility.put(image,View.VISIBLE);
             nativeVisibility.put(clockContainer,View.VISIBLE);
         }
@@ -187,19 +192,19 @@ public final class ColorOsHostTest {
             check(host.active&&host.image.drawable==host.glyph,"all four contexts must display the shared glyph");
             check(host.extra!=null,"every supported context mounts its readouts");
         }
-        check(Boolean.FALSE.equals(main.namedHidden.get("battery_charge_icon"))
-                &&Boolean.FALSE.equals(main.namedHidden.get("battery_charge_reverse")),
+        check(main.forward.visibility==View.VISIBLE
+                &&main.reverse.visibility==View.GONE,
                 "handed-back SuperVOOC keeps both native bolt layers while charging");
         main.state.charging=false;
         main.applyInternal();
-        check(Boolean.TRUE.equals(main.namedHidden.get("battery_charge_icon"))
-                &&Boolean.TRUE.equals(main.namedHidden.get("battery_charge_reverse")),
+        check(main.forward.visibility==View.GONE
+                &&main.reverse.visibility==View.GONE,
                 "unplugging hides both SuperVOOC bolt layers");
         main.state.charging=true;
         TrioConfig.appearance.hideBolt=true;
         main.applyInternal();
-        check(Boolean.TRUE.equals(main.namedHidden.get("battery_charge_icon"))
-                &&Boolean.TRUE.equals(main.namedHidden.get("battery_charge_reverse")),
+        check(main.forward.visibility==View.GONE
+                &&main.reverse.visibility==View.GONE,
                 "module ownership hides both native layers to avoid overlaying its own bolt");
         TrioConfig.appearance.hideBolt=false;
         check(main.extra.parent==main.meter.parent,"standard rows reserve a sibling strip");
