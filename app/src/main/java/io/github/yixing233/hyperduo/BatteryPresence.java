@@ -120,6 +120,8 @@ final class BatteryPresence {
             final int temperature = battery.getIntExtra(BatteryManager.EXTRA_TEMPERATURE,
                     Integer.MIN_VALUE);
             final int voltage = battery.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0);
+            final int level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+            final int scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
             // "An external source is attached" is deliberately wider than
             // "status == charging": once the battery is full the platform flips
             // the status to FULL and stops pushing current, and a readout that
@@ -131,6 +133,9 @@ final class BatteryPresence {
             // ColorOS readouts follow actual charging, not merely an attached cable.
             final boolean readoutActive = ColorOsHooks.isInstalled()
                     ? ColorOsHooks.batteryStatus(status, plugged) : attached;
+            final boolean charging = plugged != 0
+                    && status == BatteryManager.BATTERY_STATUS_CHARGING
+                    && (level < 0 || scale <= 0 || level < scale);
             final int whole = (temperature == Integer.MIN_VALUE)
                     ? TrioState.TEMP_UNKNOWN
                     : Math.round(temperature / 10f);
@@ -143,7 +148,7 @@ final class BatteryPresence {
                 powerVoltage = sample.voltageMilliVolts;
             }
             final float watts = wattsOf(current, powerVoltage);
-            publish(readoutActive, watts, whole);
+            publish(readoutActive, charging, watts, whole);
         } catch (RuntimeException ignored) {
             // Permissions/ROM differences must not crash SystemUI.
         }
@@ -199,12 +204,15 @@ final class BatteryPresence {
         return Math.abs(currentMicroAmps) * (voltageMilliVolts / 1000f) / 1000000f;
     }
 
-    private static void publish(boolean attached, float watts, int temperature) {
-        if (ColorOsHooks.dispatchBatteryPublish(() -> publish(attached, watts, temperature))) return;
+    private static void publish(boolean attached, boolean charging, float watts, int temperature) {
+        if (ColorOsHooks.dispatchBatteryPublish(
+                () -> publish(attached, charging, watts, temperature))) return;
         final boolean beforeAttached = TrioState.sChargingAttached;
+        final boolean beforeCharging = TrioState.sBatteryCharging;
         final float beforeWatts = TrioState.sChargePowerW;
         final int beforeTemperature = TrioState.sBatteryTempC;
         TrioState.sChargingAttached = attached;
+        TrioState.sBatteryCharging = charging;
         TrioState.sChargePowerW = watts;
         TrioState.sBatteryTempC = temperature;
         // Float.compare rather than != because the watts may be POWER_UNKNOWN,
@@ -213,6 +221,7 @@ final class BatteryPresence {
         // bar once every few seconds for nothing. Float.compare orders NaN
         // against itself as equal, which is what "did the reading move" means.
         if (beforeAttached != attached
+                || beforeCharging != charging
                 || Float.compare(beforeWatts, TrioState.sChargePowerW) != 0
                 || beforeTemperature != TrioState.sBatteryTempC) {
             TrioHooks.invalidateHosts();

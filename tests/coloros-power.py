@@ -56,6 +56,7 @@ public final class ColorOsPowerTest {
         static final int TEMP_UNKNOWN = Integer.MIN_VALUE;
         static final float POWER_UNKNOWN = Float.NaN;
         static boolean sChargingAttached;
+        static boolean sBatteryCharging;
         static float sChargePowerW;
         static int sBatteryTempC = TEMP_UNKNOWN;
     }
@@ -324,14 +325,14 @@ public final class ColorOsPowerTest {
         TrioState.sChargePowerW = 0;
         TrioState.sBatteryTempC = 0;
         ColorOsHooks.worker = true;
-        publish(true, 5.9f, 32);
+        publish(true, true, 5.9f, 32);
         check(!TrioState.sChargingAttached && TrioState.sChargePowerW == 0 && TrioState.sBatteryTempC == 0,
                 "background sampling queues the entire UI snapshot without partially publishing it");
         ColorOsHooks.worker = false;
         ColorOsHooks.publish.run();
         check(TrioState.sChargingAttached && TrioState.sChargePowerW == 5.9f && TrioState.sBatteryTempC == 32
                 && TrioHooks.invalidations == 1, "the production publisher applies the snapshot on the UI side");
-        publish(true, 5.9f, 32);
+        publish(true, true, 5.9f, 32);
         check(TrioHooks.invalidations == 1, "an unchanged sample does not cause another redraw");
         System.out.println("ColorOS current units, series-cell detection, pack-voltage selection and upstream rendering passed");
     }

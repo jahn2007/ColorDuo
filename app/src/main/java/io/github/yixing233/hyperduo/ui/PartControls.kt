@@ -745,7 +745,8 @@ internal fun slidersForEditor(part: TrioSettingsPart): List<SliderSpec> = when (
  */
 internal fun roleColorsForPart(part: TrioZones.Part): List<RoleColor> = when (part) {
     TrioZones.Part.VALUE -> listOf(RoleColor.Low, RoleColor.Critical)
-    TrioZones.Part.BOLT -> listOf(RoleColor.Charging)
+    TrioZones.Part.BOLT -> listOf(RoleColor.Charging, RoleColor.QuickCharging,
+        RoleColor.FlashCharging, RoleColor.SuperCharging)
     else -> emptyList()
 }
 

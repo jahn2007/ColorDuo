@@ -137,6 +137,10 @@ final class ColorOsHooks {
 
     private static final ColorOsBattery BATTERY_SAMPLER = new ColorOsBattery();
     private static final ColorOsCharge CHARGE_SAMPLER = new ColorOsCharge();
+    private static final ColorOsChargeSpeed CHARGE_SPEED_SAMPLER = new ColorOsChargeSpeed();
+    private static volatile ColorOsChargeSpeed.Sample observedSpeed =
+            new ColorOsChargeSpeed.Sample(null, "unavailable");
+    private static String lastSpeedNote;
     private static final ColorOsRadio RADIO_SAMPLER = new ColorOsRadio();
     private static volatile DuoPolicy.Charge observedCharge = DuoPolicy.Charge.UNKNOWN;
     private static String lastChargeNote;
@@ -146,9 +150,14 @@ final class ColorOsHooks {
         if (plugged != lastBatteryPlugged) {
             lastBatteryPlugged = plugged;
             if (charger != null) charger.invalidate();
+            CHARGE_SPEED_SAMPLER.invalidate();
         }
         ColorOsCharge.Sample sample = CHARGE_SAMPLER.sample(status, plugged, SystemClock.elapsedRealtime());
         DuoPolicy.Charge next = sample.charge;
+        ColorOsChargeSpeed.Sample speed = CHARGE_SPEED_SAMPLER.sample(
+                next == DuoPolicy.Charge.CHARGING, plugged, SystemClock.elapsedRealtime());
+        boolean speedChanged = speed.speed != observedSpeed.speed || !speed.subtype.equals(observedSpeed.subtype);
+        observedSpeed = speed;
         String note = "ColorOS charging: state=" + next + " status=" + status + " plugged=" + plugged
                 + " plc=" + (sample.bypass == null ? "unavailable" : sample.bypass ? "enabled(3)" : "disabled(2)");
         if (next != observedCharge) {
@@ -158,6 +167,7 @@ final class ColorOsHooks {
         } else if (TrioConfig.debugLog() && !note.equals(lastChargeNote)) {
             TrioHooks.log(TrioHooks.LOG_INFO, note);
         }
+        if (speedChanged) invalidateHosts();
         lastChargeNote = note;
         return next == DuoPolicy.Charge.CHARGING;
     }
@@ -500,6 +510,7 @@ final class ColorOsHooks {
     private static void refreshHosts() {
         
         ClockTicker.refreshNow();
+        TrioHooks.syncNativeBoltVisibility();
         for (WeakReference<Host> reference : new ArrayList<>(HOSTS.values())) {
             Host host = reference.get();
             if (host == null || host.nativeDepth != 0) continue;
@@ -720,7 +731,10 @@ final class ColorOsHooks {
             image.setVisibility(View.VISIBLE);
             hide("battery_content", true);
             hide("battery_percentage_view", !appearance.handsBackPercentage());
-            hide("battery_charge_icon", appearance.hidesNativeBolt());
+            // SuperVOOC's double bolt is one native unit across the forward and reverse layers.
+            boolean hideNativeBolt = appearance.hidesNativeBolt() || !TrioState.sBatteryCharging;
+            hide("battery_charge_icon", hideNativeBolt);
+            hide("battery_charge_reverse", hideNativeBolt);
             hide(clockContainer, TrioRenderer.drawsClock(state, appearance));
             syncExtra(appearance);
             syncSlots(appearance);
@@ -805,14 +819,28 @@ final class ColorOsHooks {
                     integer(Refl.callByName(battery, "getTintColor"), 0xFFFFFFFF));
             Object charge = value(chargeFlow);
             if (charge == null && viewModel != null) {
-                charge = Refl.get(Refl.field(viewModel.getClass(), "chargeState"), viewModel);
+                Object nativeCharge = Refl.get(Refl.field(viewModel.getClass(), "chargeState"), viewModel);
+                charge = value(nativeCharge);
+                if (charge == null) charge = nativeCharge;
             }
-            state.charging = observedCharge == DuoPolicy.Charge.UNKNOWN
-                    ? bool(Refl.callByName(charge, "getCharging"), TrioState.sChargingAttached)
-                    : observedCharge == DuoPolicy.Charge.CHARGING;
+            state.charging = TrioState.sBatteryCharging;
             state.chargingPaused = observedCharge == DuoPolicy.Charge.PAUSED;
-            state.quickCharging = state.charging && (bool(Refl.callByName(charge, "getSuperVoocCharging"), false)
-                    || bool(Refl.callByName(charge, "getWirelessVoocCharging"), false));
+            ColorOsChargeSpeed.NativeSample nativeSpeed = CHARGE_SPEED_SAMPLER.nativeSample(charge);
+            ColorOsChargeSpeed.Sample protocol = observedSpeed;
+            state.chargingSpeed = !state.charging ? ChargeSpeed.NORMAL
+                    : protocol.speed != null ? protocol.speed
+                    : nativeSpeed.speed != null ? nativeSpeed.speed : ChargeSpeed.NORMAL;
+            state.quickCharging = state.charging && state.chargingSpeed != ChargeSpeed.NORMAL;
+            String speedNote = "ColorOS charge speed: tier=" + state.chargingSpeed
+                    + " charging=" + state.charging + " fastChgType=" + protocol.subtype
+                    + " source=" + (!state.charging ? "disconnected"
+                        : protocol.speed != null ? "oplus_sysfs"
+                        : nativeSpeed.speed != null ? "native_flags" : "fallback_normal");
+            if (TrioConfig.debugLog()) speedNote += " native={" + nativeSpeed.flags + "}";
+            if (!speedNote.equals(lastSpeedNote)) {
+                lastSpeedNote = speedNote;
+                TrioHooks.log(TrioHooks.LOG_INFO, speedNote);
+            }
             state.powerSave = bool(value(savingFlow), bool(Refl.get(
                     Refl.field(viewModel == null ? null : viewModel.getClass(), "isSavingMode"), viewModel), false));
             state.low = state.level >= 0 && state.level <= 15;

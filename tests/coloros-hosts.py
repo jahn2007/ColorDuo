@@ -84,13 +84,13 @@ public final class ColorOsHostTest {
         static TrioAppearance appearance(){return appearance;}
     }
     static class TrioAppearance {
-        boolean capsule,ring=true;
+        boolean capsule,ring=true,hideBolt;
         int splitMode;
         int signalIconScale=100;
         boolean drawsSimPair(){return false;}
         int capsuleLength=100;
         boolean handsBackPercentage(){return false;}
-        boolean hidesNativeBolt(){return false;}
+        boolean hidesNativeBolt(){return hideBolt;}
         boolean hidesStatusClock(){return false;}
     }
     static class TrioGeometry {
@@ -99,7 +99,10 @@ public final class ColorOsHostTest {
         static int capHostHeightPx(int v){return v;}
         static int capHostWidthPx(int v){return v*3;}
     }
-    static class TrioState { static String sClockText="12:34"; }
+    static class TrioState {
+        static String sClockText="12:34";
+        static boolean sBatteryCharging=true;
+    }
     static class TrioHooks {
         static final int LOG_INFO=4;
         static void log(int level,String note){}
@@ -129,6 +132,7 @@ public final class ColorOsHostTest {
         final ImageView.ScaleType nativeScaleType=ImageView.ScaleType.CENTER;
         final Map<View,Integer> nativeVisibility=new IdentityHashMap<>();
         final Map<View,Integer> visibilityOverrides=new IdentityHashMap<>();
+        final Map<String,Boolean> namedHidden=new HashMap<>();
         ColorOsReadings extra;
         View clockContainer=new View();
         int nativeDepth,ownedWidth,ownedHeight;
@@ -146,7 +150,7 @@ public final class ColorOsHostTest {
         boolean primaryBar(){return main;}
         void capture(){}
         void readState(){}
-        void hide(String name,boolean hidden){}
+        void hide(String name,boolean hidden){namedHidden.put(name,hidden);}
         void hide(View view,boolean hidden){if(view!=null)view.setVisibility(hidden?View.GONE:nativeVisibility.get(view));}
         void syncSlots(TrioAppearance appearance){}
         void restore(){restoreBatteryInternal();}
@@ -164,6 +168,21 @@ public final class ColorOsHostTest {
             check(host.active&&host.image.drawable==host.glyph,"all four contexts must display the shared glyph");
             check(host.extra!=null,"every supported context mounts its readouts");
         }
+        check(Boolean.FALSE.equals(main.namedHidden.get("battery_charge_icon"))
+                &&Boolean.FALSE.equals(main.namedHidden.get("battery_charge_reverse")),
+                "handed-back SuperVOOC keeps both native bolt layers while charging");
+        TrioState.sBatteryCharging=false;
+        main.applyInternal();
+        check(Boolean.TRUE.equals(main.namedHidden.get("battery_charge_icon"))
+                &&Boolean.TRUE.equals(main.namedHidden.get("battery_charge_reverse")),
+                "unplugging hides both SuperVOOC bolt layers");
+        TrioState.sBatteryCharging=true;
+        TrioConfig.appearance.hideBolt=true;
+        main.applyInternal();
+        check(Boolean.TRUE.equals(main.namedHidden.get("battery_charge_icon"))
+                &&Boolean.TRUE.equals(main.namedHidden.get("battery_charge_reverse")),
+                "module ownership hides both native layers to avoid overlaying its own bolt");
+        TrioConfig.appearance.hideBolt=false;
         check(main.extra.parent==main.meter.parent,"standard rows reserve a sibling strip");
         check(keyguard.extra.parent==keyguard.meter.parent,"keyguard owns its own strip");
         check(notification.extra.parent==notification.meter,"notification ConstraintLayout reserves inside its meter");

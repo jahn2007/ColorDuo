@@ -183,6 +183,12 @@ public final class TrioAppearance {
     public final int criticalOnLight;
     public final int chargingOnDark;
     public final int chargingOnLight;
+    public final int quickChargingOnDark;
+    public final int quickChargingOnLight;
+    public final int flashChargingOnDark;
+    public final int flashChargingOnLight;
+    public final int superChargingOnDark;
+    public final int superChargingOnLight;
     public final int lowOnDark;
     public final int lowOnLight;
     public final int lowThreshold;
@@ -334,6 +340,12 @@ public final class TrioAppearance {
         criticalOnLight = c.criticalOnLight;
         chargingOnDark = c.chargingOnDark;
         chargingOnLight = c.chargingOnLight;
+        quickChargingOnDark = c.quickChargingOnDark;
+        quickChargingOnLight = c.quickChargingOnLight;
+        flashChargingOnDark = c.flashChargingOnDark;
+        flashChargingOnLight = c.flashChargingOnLight;
+        superChargingOnDark = c.superChargingOnDark;
+        superChargingOnLight = c.superChargingOnLight;
         lowOnDark = c.lowOnDark;
         lowOnLight = c.lowOnLight;
         lowThreshold = c.lowThreshold;

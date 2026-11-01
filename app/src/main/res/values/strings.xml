@@ -82,7 +82,7 @@
     <string name="drawing_pick_title">%1$s：现在是%2$s</string>
     <string name="drawing_pick_none_summary">清除这一处的可选组件；圆环和电量条保留。</string>
     <string name="drawing_feedback_charging">%1$s已设在%2$s；充电时闪电优先显示。切换到“正常”预览查看。</string>
-    <string name="drawing_feedback_bolt">已将%1$s设在%2$s；切换到“充电”或“快充”预览查看。</string>
+    <string name="drawing_feedback_bolt">已将%1$s设在%2$s；切换到“充电”“快充”“闪充”或“超级闪充”预览查看。</string>
     <string name="drawing_feedback_wifi">%1$s已设在%2$s；当前预览没有 Wi-Fi，切换到“正常”预览查看。</string>
     <string name="drawing_feedback_other">%1$s已设在%2$s；当前预览显示%3$s。切换预览状态查看。</string>
     <string name="drawing_pick_impossible">%1$s放不下这个组件。</string>
@@ -94,6 +94,8 @@
     <string name="drawing_scene_normal">正常</string>
     <string name="drawing_scene_charging">充电</string>
     <string name="drawing_scene_quick">快充</string>
+    <string name="drawing_scene_flash">闪充</string>
+    <string name="drawing_scene_super">超级闪充</string>
     <string name="drawing_scene_low">低电量</string>
     <string name="drawing_scene_critical">危险</string>
     <string name="drawing_scene_no_wifi">无 Wi-Fi</string>
@@ -167,6 +169,9 @@
 
     <string name="color_low_title">低电量颜色</string>
     <string name="color_charging_title">充电颜色</string>
+    <string name="color_quick_charging_title">快充颜色（PD）</string>
+    <string name="color_flash_charging_title">闪充颜色（UFCS）</string>
+    <string name="color_super_charging_title">超级闪充颜色（SVOOC）</string>
     <string name="color_critical_title">危险电量颜色</string>
     <string name="color_field_summary">点按选择颜色</string>
     <string name="color_on_dark">深色背景</string>

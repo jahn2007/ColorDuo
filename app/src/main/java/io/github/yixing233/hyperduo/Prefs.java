@@ -818,6 +818,12 @@ public final class Prefs {
     public static final String KEY_COLOR_CRITICAL_ON_LIGHT = "color_critical_on_light";
     public static final String KEY_COLOR_CHARGING_ON_DARK = "color_charging_on_dark";
     public static final String KEY_COLOR_CHARGING_ON_LIGHT = "color_charging_on_light";
+    public static final String KEY_COLOR_QUICK_CHARGING_ON_DARK = "color_quick_charging_on_dark";
+    public static final String KEY_COLOR_QUICK_CHARGING_ON_LIGHT = "color_quick_charging_on_light";
+    public static final String KEY_COLOR_FLASH_CHARGING_ON_DARK = "color_flash_charging_on_dark";
+    public static final String KEY_COLOR_FLASH_CHARGING_ON_LIGHT = "color_flash_charging_on_light";
+    public static final String KEY_COLOR_SUPER_CHARGING_ON_DARK = "color_super_charging_on_dark";
+    public static final String KEY_COLOR_SUPER_CHARGING_ON_LIGHT = "color_super_charging_on_light";
     public static final String KEY_COLOR_LOW_ON_DARK = "color_low_on_dark";
     public static final String KEY_COLOR_LOW_ON_LIGHT = "color_low_on_light";
     public static final String KEY_LOW_THRESHOLD = "low_threshold";
@@ -1520,6 +1526,12 @@ public final class Prefs {
     public static final int DEF_COLOR_CRITICAL_ON_LIGHT = 0xFFFF3B30;
     public static final int DEF_COLOR_CHARGING_ON_DARK = 0xFF34C759;
     public static final int DEF_COLOR_CHARGING_ON_LIGHT = 0xFF1F8F3D;
+    public static final int DEF_COLOR_QUICK_CHARGING_ON_DARK = 0xFF00FF00;
+    public static final int DEF_COLOR_QUICK_CHARGING_ON_LIGHT = 0xFF00FF00;
+    public static final int DEF_COLOR_FLASH_CHARGING_ON_DARK = 0xFF000080;
+    public static final int DEF_COLOR_FLASH_CHARGING_ON_LIGHT = 0xFF000080;
+    public static final int DEF_COLOR_SUPER_CHARGING_ON_DARK = 0xFF800080;
+    public static final int DEF_COLOR_SUPER_CHARGING_ON_LIGHT = 0xFF800080;
     public static final int DEF_COLOR_LOW_ON_DARK = 0xFFF2B900;
     public static final int DEF_COLOR_LOW_ON_LIGHT = 0xFFC99700;
     public static final int DEF_LOW_THRESHOLD = 20;

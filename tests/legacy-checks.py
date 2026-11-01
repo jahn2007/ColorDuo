@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Verify real legacy hooks, provider caller checks, entry packaging and shared rendering."""
+"""Verify real legacy hooks, provider caller checks, entry packaging and unchanged shared rules."""
 from pathlib import Path
 import json,re,runpy,subprocess,tempfile,zipfile,xml.etree.ElementTree as ET
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE=ROOT/'app/src/main/java/io/github/yixing233/hyperduo'
-BASE='dc341d4af761b35d3c903628c6e7ba071bbb0d7f'
-for name in ['TrioRenderer.java','TrioSettings.java','TrioAppearance.java','TrioGeometry.java','TrioZones.java','DuoPolicy.java','ColorOsPolicy.java','ColorOsRadio.java','ColorOsReadings.java','ColorOsBattery.java','ColorOsCharge.java','ColorOsCharger.java','ColorOsChargerClient.java','Prefs.java']:
+BASE='3143568c17f006c2bb044e485a623d181ff90889'
+# Charging colours intentionally extend the renderer and settings; geometry,
+# layout, radio and battery rules still match the legacy baseline.
+for name in ['TrioGeometry.java','TrioZones.java','DuoPolicy.java','ColorOsPolicy.java','ColorOsRadio.java','ColorOsReadings.java','ColorOsBattery.java','ColorOsCharge.java','ColorOsCharger.java','ColorOsChargerClient.java']:
     old=subprocess.check_output(['git','show',f'{BASE}:app/src/main/java/io/github/yixing233/hyperduo/{name}'],cwd=ROOT)
     assert old.replace(b'\r\n',b'\n')==(SOURCE/name).read_bytes().replace(b'\r\n',b'\n'),name
-for path in ['ui/ContentControls.kt','ui/DrawingScreen.kt','ui/PartControls.kt']:
+for path in ['ui/ContentControls.kt']:
     old=subprocess.check_output(['git','show',f'{BASE}:app/src/main/java/io/github/yixing233/hyperduo/{path}'],cwd=ROOT)
     assert old.replace(b'\r\n',b'\n')==(SOURCE/path).read_bytes().replace(b'\r\n',b'\n'),path
 for path in SOURCE.rglob('*'):
