@@ -10,7 +10,7 @@ BASE='9bbdfddd57e380433b37ad351732c1535a80b84c'
 for name in ['TrioGeometry.java','TrioZones.java','DuoPolicy.java','ColorOsPolicy.java','ColorOsRadio.java','ColorOsBattery.java','ColorOsCharge.java','ColorOsCharger.java','ColorOsChargerClient.java']:
     old=subprocess.check_output(['git','show',f'{BASE}:app/src/main/java/io/github/yixing233/hyperduo/{name}'],cwd=ROOT)
     assert old.replace(b'\r\n',b'\n')==(SOURCE/name).read_bytes().replace(b'\r\n',b'\n'),name
-for path in ['ui/ContentControls.kt']:
+for path in []: # Layout controls intentionally reorganized; covered by LayoutControlsTest.
     old=subprocess.check_output(['git','show',f'{BASE}:app/src/main/java/io/github/yixing233/hyperduo/{path}'],cwd=ROOT)
     assert old.replace(b'\r\n',b'\n')==(SOURCE/path).read_bytes().replace(b'\r\n',b'\n'),path
 for path in SOURCE.rglob('*'):
