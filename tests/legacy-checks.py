@@ -7,7 +7,7 @@ SOURCE=ROOT/'app/src/main/java/io/github/yixing233/hyperduo'
 BASE='9bbdfddd57e380433b37ad351732c1535a80b84c'
 # Charging colours intentionally extend the renderer and settings; geometry,
 # layout, radio and battery rules still match the legacy baseline.
-for name in ['TrioGeometry.java','TrioZones.java','DuoPolicy.java','ColorOsPolicy.java','ColorOsRadio.java','ColorOsReadings.java','ColorOsBattery.java','ColorOsCharge.java','ColorOsCharger.java','ColorOsChargerClient.java']:
+for name in ['TrioGeometry.java','TrioZones.java','DuoPolicy.java','ColorOsPolicy.java','ColorOsRadio.java','ColorOsBattery.java','ColorOsCharge.java','ColorOsCharger.java','ColorOsChargerClient.java']:
     old=subprocess.check_output(['git','show',f'{BASE}:app/src/main/java/io/github/yixing233/hyperduo/{name}'],cwd=ROOT)
     assert old.replace(b'\r\n',b'\n')==(SOURCE/name).read_bytes().replace(b'\r\n',b'\n'),name
 for path in ['ui/ContentControls.kt']:

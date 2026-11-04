@@ -1,3 +1,11 @@
+# 0.3.16-legacy.2 / 10042
+
+- 同步上游 `98369c2` 的充电配色、协议回退及移动信号持续订阅修复。
+- “连 Wi-Fi 时隐藏网络类型”更名为“跟随实际上网网络”，沿用原设置键和开关状态。
+- 开启后按系统默认上网网络显示 Wi-Fi 或移动网络类型；Wi-Fi 保持关联但已切到移动数据时隐藏 Wi-Fi 图示。
+- 修复环内单独位置、Wi-Fi 归还系统以及环外网络类型未执行隐藏的问题。
+- VPN 优先读取底层传输；路径无法辨识或权限不足时保留连接状态回退，不凭信号强度猜测路由。
+
 # Legacy upstream sync 0.3.16-legacy.1 / 10040
 
 Synced shared fixes through upstream `98369c2`: independent ring/bolt palettes with
