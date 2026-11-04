@@ -36,19 +36,22 @@ class LegacyBoltTest {
   check(h.visibilityOverrides.get(h.forward)==VISIBLE,"native writes cannot hide the fallback during ownership");
   h.forward.writes.clear();h.syncNativeBolt(a);
   check(h.forward.writes.isEmpty(),"periodic refresh must not flash hidden then visible");
-  a.owned=true;h.syncNativeBolt(a);check(h.forward.visibility==GONE&&h.reverse.visibility==GONE,"custom or disabled bolt hides native layers");
+  h.reverse.visibility=VISIBLE;h.reverse.writes.clear();
+  a.owned=true;h.syncNativeBolt(a);check(h.forward.visibility==GONE&&h.reverse.visibility==VISIBLE,"custom bolt leaves wireless reverse indicator alone");
+  check(h.reverse.writes.isEmpty()&&!h.visibilityOverrides.containsKey(h.reverse),"reverse status is never overridden");
   a.owned=false;h.syncNativeBolt(a);check(h.forward.visibility==VISIBLE,"changing back to native takes effect immediately");
-  h.nativeVisibility.put(h.forward,VISIBLE);h.nativeVisibility.put(h.reverse,VISIBLE);h.syncNativeBolt(a);
-  check(h.forward.visibility==VISIBLE&&h.reverse.visibility==VISIBLE,"native double-bolt selection stays intact");
-  h.nativeVisibility.put(h.reverse,INVISIBLE);h.syncNativeBolt(a);
-  check(h.reverse.visibility==INVISIBLE&&!h.visibilityOverrides.containsKey(h.reverse),"native single-bolt mode does not force a second layer");
-  h.state.charging=false;h.syncNativeBolt(a);check(h.forward.visibility==GONE&&h.reverse.visibility==GONE,"unplug overrides a stale visible snapshot");
-  h.state.chargingPaused=true;h.syncNativeBolt(a);check(h.forward.visibility==VISIBLE,"paused charger retains the configured native handoff");
-  h.state.chargingPaused=false;h.syncNativeBolt(a);check(h.forward.visibility==GONE,"pause to disconnect hides the bolt");
-  Host missing=new Host(GONE,GONE);missing.forward=null;missing.state.charging=true;missing.syncNativeBolt(a);
-  check(missing.reverse.visibility==VISIBLE,"a firmware with only the reverse layer still gets a fallback");
+  h.nativeVisibility.put(h.forward,VISIBLE);h.syncNativeBolt(a);
+  check(h.forward.visibility==VISIBLE&&!h.visibilityOverrides.containsKey(h.forward),"native visible callback supersedes the charging fallback");
+  h.state.charging=false;h.syncNativeBolt(a);
+  check(h.forward.visibility==VISIBLE,"native full or unplugged state remains authoritative");
+  h.nativeVisibility.put(h.forward,GONE);h.syncNativeBolt(a);
+  check(h.forward.visibility==GONE,"native disconnect hides the primary bolt");
+  h.state.chargingPaused=true;h.syncNativeBolt(a);check(h.forward.visibility==VISIBLE,"paused charger retains the legacy native handoff");
+  h.state.chargingPaused=false;h.syncNativeBolt(a);check(h.forward.visibility==GONE,"disconnect removes only the fallback");
+  Host missing=new Host(GONE,VISIBLE);missing.forward=null;missing.state.charging=true;missing.syncNativeBolt(a);
+  check(missing.reverse.visibility==VISIBLE&&missing.reverse.writes.isEmpty(),"missing primary must not repurpose wireless reverse status");
   Host absent=new Host(GONE,GONE);absent.forward=null;absent.reverse=null;absent.syncNativeBolt(a);
-  check(absent.visibilityOverrides.isEmpty(),"missing native layers are safe");
+  check(absent.visibilityOverrides.isEmpty(),"missing native views are safe");
   System.out.println("Legacy native bolt handoff: "+checks+" checks passed");
  }
 }

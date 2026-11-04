@@ -1,8 +1,49 @@
+# Legacy upstream sync 0.3.16-legacy.1 / 10040
+
+Synced shared fixes through upstream `98369c2`: independent ring/bolt palettes with
+one-time migration, native charging-protocol reflection, fast-charge fallback colours,
+release preview compilation, and active per-SIM signal collection with telephony fallback.
+Keep the legacy Xposed entry, device-protected provider and notification-only broadcasts.
+Native wireless reverse charging stays entirely under system control. A charging-only
+primary-bolt fallback remains for legacy's early-attach visibility snapshots.
+The cloud build now runs the upstream coroutine and layout unit tests before packaging.
+
 # ColorDuo 更新记录
 
 本页记录 `chorusfruit-233/ColorDuo` 自身的版本，专注 ColorOS 17。HyperDuo 1.x 发布说明保留在 [release-notes/](release-notes/) 作为上游历史资料。
 
 离线检查与构建结果、参考固件数据和真机反馈分别记录，具体边界见 [适配与验证记录](COLOROS17.md)。
+
+## 0.3.14-test1
+
+- 针对 [#14](https://github.com/chorusfruit-233/ColorDuo/issues/14) 的移动信号等级不刷新：接管信号时主动订阅 ColorOS 原生信号流，保持系统等级算法更新。
+- 关闭模块、归还信号、移除 SIM 或热重载时释放订阅；固件缺少对应接口时回退到定时刷新的电话服务读数，避免旧图标缓存覆盖新等级。
+- 调试日志同时记录电话服务与最终显示等级，便于核对设备差异。
+
+正式签名测试包，可覆盖 0.3.13 并保留配置。安装后重启 SystemUI 或手机，Find X10 Pro Max 的实际刷新效果待反馈确认。本版不推送到 Xposed 模块仓。
+
+## 0.3.13
+
+合入 [jahn2007 的 PR #13](https://github.com/chorusfruit-233/ColorDuo/pull/13)，其中包含 #11 的协议配色实现，并纳入全部审查修正。
+
+- 新增普通、PD/PPS/QC、VOOC/UFCS、SVOOC 四档充电配色，电量环和闪电可分别设置浅深色；升级继承已有颜色。
+- 新增默认关闭的充电流光动画，支持圆环、分离椭圆和胶囊，可调方向、速度、总宽度与渐变宽度；暂停充电、拔电或关闭开关后停止动画。
+- 修复新增配置在框架重连、重启和恢复默认时的同步遗漏，以及原生协议读取兼容和快充闪电颜色回退。
+- 保留系统对无线反向充电标识和归还原生闪电后的控制，修正签名流程的布局参考图编译。
+
+流光入口：首页点击大预览的电量环线，打开“环内组件”，开启“充电时流光动画”。
+
+正式签名，可覆盖 0.3.12 及 0.3.13-test1 并保留配置，安装后重启 SystemUI 或手机。协议配色方案来源：jw-c-c；审查记录见 [PR13-REVIEW.md](PR13-REVIEW.md)。
+
+已发布：[源码仓库](https://github.com/chorusfruit-233/ColorDuo/releases/tag/v0.3.13) · [Xposed 模块仓](https://github.com/Xposed-Modules-Repo/io.github.chorusfruit_233.colorduo/releases/tag/10038-0.3.13)。
+
+## 0.3.13-test1
+
+- 整合 PR #13 供实机测试，包括 #11 的充电协议配色、默认关闭的流光动画，以及方向、速度、总宽度和渐变宽度调节。
+- 修复 #12 评论中的颜色联动：电量环与闪电独立配置，升级先继承原有颜色，预览与状态栏使用同一组设置。
+- 补齐框架重连和恢复默认时的完整配置同步、非公开原生模型的协议回退，以及关闭状态颜色时的快充闪电颜色。
+- 恢复由系统控制无线反向充电标识及归还系统后的原生闪电，避免将反向供电标识误当作第二层闪电隐藏。
+- 修复正式签名流程中布局参考图缺少协议枚举的编译问题。本包使用正式签名，只提供测试，不合并 PR 或发布到模块仓。
 
 ## 0.3.12
 

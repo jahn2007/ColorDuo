@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/android
       - name: Assemble installable APK
-        run: ./gradlew --no-daemon :app:assembleDebug
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
       - name: Verify signature, Xposed metadata and SHA256
         id: package
         run: python3 scripts/ci/artifacts.py package --variant debug

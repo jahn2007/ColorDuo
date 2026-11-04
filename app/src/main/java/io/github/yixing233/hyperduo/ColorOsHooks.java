@@ -57,6 +57,8 @@ final class ColorOsHooks {
     private static final Map<View, WeakReference<Host>> HOSTS = new WeakHashMap<>();
     private static final Map<View, WeakReference<Host>> CHILDREN = new WeakHashMap<>();
     private static final Map<Integer, Mobile> MOBILES = new ConcurrentHashMap<>();
+    private static final ColorOsSignalFlows SIGNAL_FLOWS = new ColorOsSignalFlows(
+            message -> TrioHooks.log(TrioHooks.LOG_WARN, message));
     private static volatile Object wifiFlow;
     private static volatile WifiSample renderedWifi = WifiSample.UNKNOWN;
     private static Class<?> wifiActiveClass;
@@ -575,6 +577,9 @@ final class ColorOsHooks {
     }
 
     private static void refreshHosts() {
+        if (!TrioConfig.get().enabled || !TrioConfig.appearance().foldsMobile()) {
+            SIGNAL_FLOWS.sync(Collections.emptyList());
+        }
         
         ClockTicker.refreshNow();
         for (WeakReference<Host> reference : new ArrayList<>(HOSTS.values())) {
@@ -600,6 +605,8 @@ final class ColorOsHooks {
                 boolean interactive = true;
                 PowerManager power = context.getSystemService(PowerManager.class);
                 if (power != null) interactive = power.isInteractive();
+                if (!TrioConfig.get().enabled || !TrioConfig.appearance().foldsMobile())
+                    SIGNAL_FLOWS.sync(Collections.emptyList());
                 if (interactive && TrioConfig.get().enabled) refreshHosts();
                 MAIN.postDelayed(this, interactive ? 1000L : 5000L);
             }
@@ -659,8 +666,7 @@ final class ColorOsHooks {
         volatile String renderedType;
 
         Object signal() {
-            Object current = value(icon);
-            return current == null ? value(cellularIcon) : current;
+            return SIGNAL_FLOWS.read(icon, cellularIcon);
         }
 
         String networkType(String radio) {
@@ -855,22 +861,19 @@ final class ColorOsHooks {
 
         /** Keep native layer choices, with a visible primary fallback for a stale hidden snapshot. */
         void syncNativeBolt(TrioAppearance appearance) {
+            // Wireless reverse charging is a separate system indicator. Never override it.
             View forward = find("battery_charge_icon");
-            View reverse = find("battery_charge_reverse");
-            boolean hidden = appearance.hidesNativeBolt() || (!state.charging && !state.chargingPaused);
-            boolean nativeVisible = Integer.valueOf(View.VISIBLE).equals(nativeVisibility.get(forward))
-                    || Integer.valueOf(View.VISIBLE).equals(nativeVisibility.get(reverse));
-            View fallback = !hidden && !nativeVisible
-                    ? (forward != null ? forward : reverse) : null;
-            for (View view : new View[] {forward, reverse}) {
-                Integer original = nativeVisibility.get(view);
-                if (view == null || original == null) continue;
-                int desired = hidden ? View.GONE : view == fallback ? View.VISIBLE : original;
-                if (hidden || view == fallback) visibilityOverrides.put(view, desired);
-                else visibilityOverrides.remove(view);
-                // Do not flash GONE between restoring the snapshot and showing the fallback.
-                if (view.getVisibility() != desired) view.setVisibility(desired);
-            }
+            Integer original = nativeVisibility.get(forward);
+            if (forward == null || original == null) return;
+            boolean hidden = appearance.hidesNativeBolt();
+            // Legacy can attach before the native binder's first visible callback.
+            // Keep the charging-only fallback, without manufacturing a reverse indicator.
+            boolean fallback = !hidden && (state.charging || state.chargingPaused)
+                    && original != View.VISIBLE;
+            int desired = hidden ? View.GONE : fallback ? View.VISIBLE : original;
+            if (hidden || fallback) visibilityOverrides.put(forward, desired);
+            else visibilityOverrides.remove(forward);
+            if (forward.getVisibility() != desired) forward.setVisibility(desired);
         }
 
         void hide(String name, boolean hidden) {
@@ -956,7 +959,7 @@ final class ColorOsHooks {
                     : nativeSpeed.speed != null ? nativeSpeed.speed : ChargeSpeed.NORMAL;
             state.quickCharging = state.charging && state.chargingSpeed != ChargeSpeed.NORMAL;
             String speedNote = "ColorOS charge speed: tier=" + state.chargingSpeed
-                    + " charging=" + state.charging + " fastChgType=" + protocol.subtype
+                    + " charging=" + state.charging + " protocolSubtype=" + protocol.subtype
                     + " source=" + (!state.charging ? "disconnected"
                         : protocol.speed != null ? "oplus_sysfs"
                         : nativeSpeed.speed != null ? "native_flags" : "fallback_normal");
@@ -1005,6 +1008,20 @@ final class ColorOsHooks {
             state.mobileType = "";
             ColorOsRadio.Sample radio = RADIO_SAMPLER.sample(context, now);
             ColorOsNetworkType.sync(context, radio.subscriptions);
+            // Reading StateFlow.value alone does not keep WhileSubscribed models live.
+            // Subscribe only the active SIMs while the module owns their signal display.
+            List<Object> signalFlows = new ArrayList<>();
+            if (TrioConfig.appearance().foldsMobile() && radio.subscriptions != null) {
+                for (SubscriptionInfo subscription : radio.subscriptions) {
+                    if (subscription == null) continue;
+                    Mobile mobile = MOBILES.get(subscription.getSubscriptionId());
+                    if (mobile != null) {
+                        signalFlows.add(mobile.icon);
+                        signalFlows.add(mobile.cellularIcon);
+                    }
+                }
+            }
+            SIGNAL_FLOWS.sync(signalFlows);
             state.dataSlot = radio.dataSlot;
             state.mobileService = radio.radio;
             if (radio.radio == DuoPolicy.Radio.AIRPLANE || radio.radio == DuoPolicy.Radio.NO_SIM) {
@@ -1060,7 +1077,9 @@ final class ColorOsHooks {
         private void noteMobile(ColorOsRadio.Sample radio) {
             if (TrioConfig.debugLog()) {
                 String note = "ColorOS mobile: models=" + MOBILES.size() + " dataSlot=" + TrioState.sDataSlot
-                        + " levels=" + java.util.Arrays.toString(state.slotLevels) + " type=" + state.mobileType
+                        + " levels=" + java.util.Arrays.toString(state.slotLevels)
+                        + " telephonyLevels=" + java.util.Arrays.toString(TrioState.sSlotLevels)
+                        + " type=" + state.mobileType
                         + " service=" + state.mobileService + " reported=" + radio.reportedRadio
                         + " primarySlot=" + state.dataSlot
                         + " subscriptions=" + (radio.subscriptions == null ? -1 : radio.subscriptions.size());

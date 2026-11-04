@@ -194,18 +194,19 @@ public final class ColorOsHostTest {
         }
         check(main.forward.visibility==View.VISIBLE
                 &&main.reverse.visibility==View.GONE,
-                "handed-back SuperVOOC keeps both native bolt layers while charging");
+                "native charging bolt is visible while reverse indicator remains independent");
         main.state.charging=false;
+        main.nativeVisibility.put(main.forward,View.GONE);
         main.applyInternal();
         check(main.forward.visibility==View.GONE
                 &&main.reverse.visibility==View.GONE,
-                "unplugging hides both SuperVOOC bolt layers");
+                "native disconnect hides the charging bolt without creating a reverse indicator");
         main.state.charging=true;
         TrioConfig.appearance.hideBolt=true;
         main.applyInternal();
         check(main.forward.visibility==View.GONE
                 &&main.reverse.visibility==View.GONE,
-                "module ownership hides both native layers to avoid overlaying its own bolt");
+                "module ownership hides only its native charging bolt");
         TrioConfig.appearance.hideBolt=false;
         check(main.extra.parent==main.meter.parent,"standard rows reserve a sibling strip");
         check(keyguard.extra.parent==keyguard.meter.parent,"keyguard owns its own strip");

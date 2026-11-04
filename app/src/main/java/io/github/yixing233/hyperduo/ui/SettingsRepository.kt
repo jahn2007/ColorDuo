@@ -20,11 +20,10 @@ import io.github.yixing233.hyperduo.Prefs
 import io.github.yixing233.hyperduo.TrioSettings
 import io.github.yixing233.hyperduo.LegacySettings
 
-/** Persistent device-protected legacy preferences. Broadcasts only request a provider re-read. */
+/** Device-protected legacy preferences; broadcasts request an authenticated provider re-read. */
 class SettingsRepository(context: Context) {
 
     private val appContext = context.applicationContext
-
 
     /** The display density, needed to migrate the retired raw-pixel size key. */
     private val density: Float
@@ -32,6 +31,12 @@ class SettingsRepository(context: Context) {
 
     private fun preferences() =
         LegacySettings.preferences(appContext)
+
+    init {
+        if (!TrioSettings.migrateBoltColors(preferences())) {
+            Log.w(TAG, "cannot persist independent bolt colors")
+        }
+    }
 
     /** The current values, as the preview should render them. */
     fun read(): TrioSettings = TrioSettings.from(preferences(), density)
@@ -51,8 +56,8 @@ class SettingsRepository(context: Context) {
 
     // ------------------------------------------------------------- appearance
 
-    fun setHideHd(value: Boolean) = writeBoolean(Prefs.KEY_HIDE_HD, value)
     fun setEnabled(value: Boolean) = writeBoolean(Prefs.KEY_ENABLED, value)
+    fun setHideHd(value: Boolean) = writeBoolean(Prefs.KEY_HIDE_HD, value)
     fun setShowWifi(value: Boolean) = writeStyled(style(), Prefs.KEY_SHOW_WIFI) { e, k ->
         e.putBoolean(k, value) }
     fun setShowMobile(value: Boolean) = writeStyled(style(), Prefs.KEY_SHOW_MOBILE) { e, k ->
@@ -144,6 +149,7 @@ class SettingsRepository(context: Context) {
         applyRingAssignment(io.github.yixing233.hyperduo.TrioZones.withSignalArrangement(current, paired))
     }
 
+    /** Publish the combined bolt menu as one layout/visibility transaction. */
     fun setBoltPosition(position: Int) {
         val current = TrioSettings.from(preferences(), density)
         applyRingAssignment(io.github.yixing233.hyperduo.TrioZones.withBoltPosition(current, position))
@@ -179,6 +185,8 @@ class SettingsRepository(context: Context) {
             val next = current.copy()
             if (part == io.github.yixing233.hyperduo.TrioZones.Part.SIM_PAIR
                 && current.ringZones.any { it.contains(Prefs.PART_SIM_PAIR) }) next.showMobile = false
+            if (part == io.github.yixing233.hyperduo.TrioZones.Part.SIM_1) next.showSim1 = false
+            if (part == io.github.yixing233.hyperduo.TrioZones.Part.SIM_2) next.showSim2 = false
             val id = io.github.yixing233.hyperduo.TrioZones.encodePart(part)
             next.ringZones = io.github.yixing233.hyperduo.TrioSettings.copyZones(current.ringZones)
             for (zone in next.ringZones.indices) {
@@ -348,6 +356,14 @@ class SettingsRepository(context: Context) {
     fun setColorFlashChargingOnLight(value: Int) = writeInt(Prefs.KEY_COLOR_FLASH_CHARGING_ON_LIGHT, value)
     fun setColorSuperChargingOnDark(value: Int) = writeInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_DARK, value)
     fun setColorSuperChargingOnLight(value: Int) = writeInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_LIGHT, value)
+    fun setColorBoltChargingOnDark(value: Int) = writeInt(Prefs.KEY_COLOR_BOLT_CHARGING_ON_DARK, value)
+    fun setColorBoltChargingOnLight(value: Int) = writeInt(Prefs.KEY_COLOR_BOLT_CHARGING_ON_LIGHT, value)
+    fun setColorBoltQuickChargingOnDark(value: Int) = writeInt(Prefs.KEY_COLOR_BOLT_QUICK_CHARGING_ON_DARK, value)
+    fun setColorBoltQuickChargingOnLight(value: Int) = writeInt(Prefs.KEY_COLOR_BOLT_QUICK_CHARGING_ON_LIGHT, value)
+    fun setColorBoltFlashChargingOnDark(value: Int) = writeInt(Prefs.KEY_COLOR_BOLT_FLASH_CHARGING_ON_DARK, value)
+    fun setColorBoltFlashChargingOnLight(value: Int) = writeInt(Prefs.KEY_COLOR_BOLT_FLASH_CHARGING_ON_LIGHT, value)
+    fun setColorBoltSuperChargingOnDark(value: Int) = writeInt(Prefs.KEY_COLOR_BOLT_SUPER_CHARGING_ON_DARK, value)
+    fun setColorBoltSuperChargingOnLight(value: Int) = writeInt(Prefs.KEY_COLOR_BOLT_SUPER_CHARGING_ON_LIGHT, value)
     fun setColorLowOnDark(value: Int) = writeInt(Prefs.KEY_COLOR_LOW_ON_DARK, value)
     fun setColorLowOnLight(value: Int) = writeInt(Prefs.KEY_COLOR_LOW_ON_LIGHT, value)
 
@@ -364,11 +380,18 @@ class SettingsRepository(context: Context) {
             putInt(Prefs.KEY_COLOR_FLASH_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_FLASH_CHARGING_ON_LIGHT)
             putInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_DARK, Prefs.DEF_COLOR_SUPER_CHARGING_ON_DARK)
             putInt(Prefs.KEY_COLOR_SUPER_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_SUPER_CHARGING_ON_LIGHT)
+            putInt(Prefs.KEY_COLOR_BOLT_CHARGING_ON_DARK, Prefs.DEF_COLOR_CHARGING_ON_DARK)
+            putInt(Prefs.KEY_COLOR_BOLT_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_CHARGING_ON_LIGHT)
+            putInt(Prefs.KEY_COLOR_BOLT_QUICK_CHARGING_ON_DARK, Prefs.DEF_COLOR_QUICK_CHARGING_ON_DARK)
+            putInt(Prefs.KEY_COLOR_BOLT_QUICK_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_QUICK_CHARGING_ON_LIGHT)
+            putInt(Prefs.KEY_COLOR_BOLT_FLASH_CHARGING_ON_DARK, Prefs.DEF_COLOR_FLASH_CHARGING_ON_DARK)
+            putInt(Prefs.KEY_COLOR_BOLT_FLASH_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_FLASH_CHARGING_ON_LIGHT)
+            putInt(Prefs.KEY_COLOR_BOLT_SUPER_CHARGING_ON_DARK, Prefs.DEF_COLOR_SUPER_CHARGING_ON_DARK)
+            putInt(Prefs.KEY_COLOR_BOLT_SUPER_CHARGING_ON_LIGHT, Prefs.DEF_COLOR_SUPER_CHARGING_ON_LIGHT)
             putInt(Prefs.KEY_COLOR_LOW_ON_DARK, Prefs.DEF_COLOR_LOW_ON_DARK)
             putInt(Prefs.KEY_COLOR_LOW_ON_LIGHT, Prefs.DEF_COLOR_LOW_ON_LIGHT)
         }
-
-        notifyModule()
+        syncAllToModule()
     }
 
     // ------------------------------------------------------------------ sizing
@@ -407,13 +430,7 @@ class SettingsRepository(context: Context) {
 
     // ----------------------------------------------------------- remote mirror
 
-    /**
-     * Pushes every value currently in the app's own file to the framework.
-     *
-     * <p>Called once when the service binds: while the framework is not
-     * connected writes only land in the app's file, so a plain "push on write"
-     * would leave SystemUI running with stale values from a previous session.
-     */
+    /** Ask SystemUI to re-read the complete device-protected snapshot. */
     fun syncAllToModule() { notifyModule() }
 
     private fun writeBoolean(key: String, value: Boolean) {
@@ -435,7 +452,7 @@ class SettingsRepository(context: Context) {
     }
 
 
-    /** Notify SystemUI to read its authenticated provider snapshot; do not accept intent extras. */
+    /** Notify SystemUI to re-read its authenticated provider; never send configuration extras. */
     private fun notifyModule() {
         runCatching {
             val intent = Intent(Prefs.ACTION_RELOAD)
@@ -444,7 +461,6 @@ class SettingsRepository(context: Context) {
             appContext.sendBroadcast(intent)
         }.onFailure { Log.w(TAG, "cannot notify the hooked process", it) }
     }
-
 
 
 
