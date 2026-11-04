@@ -93,6 +93,8 @@ kotlin {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("androidx.constraintlayout:constraintlayout-core:1.1.2")
     // Provided by the Xposed framework at runtime, never bundled.
     compileOnly("de.robv.android.xposed:api:82")
     // Needed by the settings app to talk to the framework service.
